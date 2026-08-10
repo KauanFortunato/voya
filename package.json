@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:api": "tsx watch server/index.ts",
+    "dev:api": "tsx --env-file=.env watch server/index.ts",
     "build": "tsc -b && vite build",
-    "db:migrate": "tsx server/db/migrate.ts",
-    "db:seed": "tsx server/db/seed.ts",
+    "db:provision": "tsx --env-file=.env server/db/provision.ts",
+    "db:migrate": "tsx --env-file=.env server/db/migrate.ts",
+    "db:seed": "tsx --env-file=.env server/db/seed.ts",
     "lint": "oxlint",
-    "start:api": "tsx server/index.ts",
+    "start:api": "tsx --env-file=.env server/index.ts",
     "preview": "vite preview"
   },
   "dependencies": {

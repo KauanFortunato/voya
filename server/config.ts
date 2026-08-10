@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 const environmentSchema = z.object({
   DATABASE_URL: z.string().url().startsWith('postgresql://'),
+  POSTGRES_ADMIN_URL: z.string().url().startsWith('postgresql://').optional(),
+  VOYA_DATABASE_PASSWORD: z.string().min(16).optional(),
   VOYA_API_HOST: z.string().default('127.0.0.1'),
   VOYA_API_PORT: z.coerce.number().int().positive().default(3333),
   VOYA_BOOTSTRAP_PASSWORD: z.string().min(8).optional(),
