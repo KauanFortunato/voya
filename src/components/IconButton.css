@@ -1,0 +1,16 @@
+.icon-button {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 14px;
+
+  background: white;
+  color: #1f2a37;
+
+  cursor: pointer;
+}
