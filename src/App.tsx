@@ -52,16 +52,7 @@ function ScrollPositionManager() {
   }, [])
 
   useEffect(() => {
-    const targetPosition = primaryPaths.has(pathname)
-      ? (scrollPositions.get(pathname) ?? 0)
-      : 0
-    const restorePosition = () => window.scrollTo({ top: targetPosition, behavior: 'auto' })
-
-    restorePosition()
-    const afterTransition = window.setTimeout(restorePosition, 320)
-
     return () => {
-      window.clearTimeout(afterTransition)
       if (primaryPaths.has(pathname)) scrollPositions.set(pathname, window.scrollY)
     }
   }, [pathname])
@@ -91,16 +82,22 @@ function BottomNavigation() {
 function AnimatedRoutes() {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
+  const restoreDestinationScroll = () => {
+    const targetPosition = primaryPaths.has(location.pathname)
+      ? (scrollPositions.get(location.pathname) ?? 0)
+      : 0
+    window.scrollTo({ top: targetPosition, behavior: 'auto' })
+  }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="wait" initial={false} onExitComplete={restoreDestinationScroll}>
       <motion.div
         className="route-stage"
         key={location.pathname}
-        initial={reduceMotion ? false : { opacity: 0, y: 8, filter: 'blur(3px)' }}
+        initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        exit={reduceMotion ? undefined : { opacity: 0, y: -4, filter: 'blur(2px)' }}
-        transition={{ type: 'spring', duration: 0.28, bounce: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
+        transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
       >
         <Suspense fallback={<ScreenSkeleton />}>
           <Routes location={location}>
