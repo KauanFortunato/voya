@@ -16,6 +16,7 @@ export interface Activity {
   time: string
   type: ActivityType
   status: ActivityStatus
+  label?: string
   address?: string
   mapsUrl?: string
 }
