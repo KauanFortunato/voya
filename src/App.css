@@ -32,16 +32,18 @@
 .bottom-navigation {
   position: fixed;
   z-index: 30;
-  bottom: 0;
+  bottom: max(10px, env(safe-area-inset-bottom));
   left: 50%;
   display: grid;
-  width: min(100%, 480px);
-  height: calc(70px + env(safe-area-inset-bottom));
-  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+  width: min(calc(100% - 24px), 456px);
+  height: 68px;
+  padding: 7px 8px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  border-top: 1px solid rgb(212 229 244 / 86%);
+  border-radius: 22px;
   background: rgb(255 255 255 / 92%);
-  box-shadow: 0 -12px 36px rgb(47 128 237 / 7%);
+  box-shadow:
+    0 0 0 1px rgb(47 128 237 / 7%),
+    0 12px 36px rgb(39 91 143 / 16%);
   backdrop-filter: blur(18px);
   transform: translateX(-50%);
 }
@@ -85,8 +87,7 @@
   }
 
   .bottom-navigation {
-    bottom: 16px;
-    border-radius: 0 0 30px 30px;
+    bottom: 28px;
   }
 }
 
