@@ -11,6 +11,7 @@ import {
 import { Link } from 'react-router-dom'
 
 import IconButton from '../components/IconButton'
+import voyaLogo from '../assets/voya-logo.png'
 import './MorePage.css'
 
 const menuItems = [
@@ -27,7 +28,7 @@ export default function MorePage() {
     <main className="more-page" id="main-content">
       <header className="more-header">
         <div>
-          <p>Voya</p>
+          <img className="more-brand-logo" src={voyaLogo} alt="Voya" />
           <h1>Mais</h1>
         </div>
         <IconButton icon={Bell} ariaLabel="Notificações" />
