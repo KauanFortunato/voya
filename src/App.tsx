@@ -22,6 +22,7 @@ import './App.css'
 const TodayPage = lazy(() => import('./pages/TodayPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
+const PlacesPage = lazy(() => import('./pages/PlacesPage'))
 const SectionPage = lazy(() => import('./pages/SectionPage'))
 
 const navigation = [
@@ -71,10 +72,7 @@ function AnimatedRoutes() {
             <Route path="/today" element={<TodayPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/itinerary" element={<ItineraryPage />} />
-            <Route
-              path="/places"
-              element={<SectionPage kicker="Lugares da família" title="Lugares" />}
-            />
+            <Route path="/places" element={<PlacesPage />} />
             <Route
               path="/more"
               element={<SectionPage kicker="Voya" title="Mais" />}
