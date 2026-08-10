@@ -26,6 +26,7 @@ export type RawTripDocument = {
   nome_arquivo: string | null
   observacoes: string | null
   classificacao_viajantes?: Record<string, string>
+  arquivo_local?: string
 }
 
 export type PrivateTrip = {

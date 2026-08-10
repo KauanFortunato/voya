@@ -22,6 +22,7 @@ export type TripDocument = {
   localFile?: File
   note?: string
   travelerRoles?: Partial<Record<TravelerId, string>>
+  fileUrl?: string
 }
 
 export const travelers: Record<TravelerId, { name: string; initials: string }> = {
@@ -133,13 +134,22 @@ function mapDocument(document: RawTripDocument, index: number): TripDocument {
     bookingCode: document.codigo_reserva ?? undefined,
     status: document.status === 'confirmado' ? 'Confirmado' : 'Atenção',
     travelerIds: document.viajantes.flatMap((name) => travelerIdMap[name] ?? []),
-    fileName: document.nome_arquivo ?? undefined,
+    fileName: document.arquivo_local ?? document.nome_arquivo ?? undefined,
     note: document.observacoes ?? undefined,
     travelerRoles,
+    fileUrl: document.arquivo_local
+      ? `/trip-documents/${document.arquivo_local.split('/').map(encodeURIComponent).join('/')}`
+      : undefined,
   }
 }
 
-const importedDocuments = (privateTrip?.documentos ?? []).map(mapDocument)
+const importedDocuments = Array.from(
+  new Map(
+    (privateTrip?.documentos ?? [])
+      .map(mapDocument)
+      .map((document) => [document.fileUrl ?? document.id, document]),
+  ).values(),
+)
 
 export const documentSeed = importedDocuments.length ? importedDocuments : fallbackDocuments
 import { privateTrip, type RawTripDocument } from './privateTrip'
