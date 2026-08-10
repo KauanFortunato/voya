@@ -17,15 +17,6 @@
   font-size: 0.82rem;
 }
 
-.more-brand-logo {
-  display: block;
-  width: 92px;
-  height: auto;
-  margin-bottom: 2px;
-  object-fit: contain;
-  object-position: left center;
-}
-
 .more-header h1 {
   margin-top: 2px;
   font-size: clamp(1.75rem, 8vw, 2rem);

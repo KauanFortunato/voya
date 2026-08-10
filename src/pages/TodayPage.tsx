@@ -14,6 +14,7 @@ import {
 
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
+import voyaLogo from '../assets/voya-logo.png'
 import { today } from '../data/trip'
 import './TodayPage.css'
 
@@ -42,6 +43,7 @@ export default function TodayPage() {
       <main className="today-page" id="main-content">
         <header className="today-header">
           <div className="header-info">
+            <img className="today-brand-logo" src={voyaLogo} alt="Voya" />
             <p>Quinta-feira, 12 setembro</p>
             <h1>Bom dia, Kauan</h1>
           </div>
