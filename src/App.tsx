@@ -23,6 +23,7 @@ const TodayPage = lazy(() => import('./pages/TodayPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
 const PlacesPage = lazy(() => import('./pages/PlacesPage'))
+const MorePage = lazy(() => import('./pages/MorePage'))
 const SectionPage = lazy(() => import('./pages/SectionPage'))
 
 const navigation = [
@@ -73,10 +74,13 @@ function AnimatedRoutes() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/itinerary" element={<ItineraryPage />} />
             <Route path="/places" element={<PlacesPage />} />
-            <Route
-              path="/more"
-              element={<SectionPage kicker="Voya" title="Mais" />}
-            />
+            <Route path="/more" element={<MorePage />} />
+            <Route path="/more/overview" element={<SectionPage kicker="12–18 setembro" title="A sua viagem" />} />
+            <Route path="/more/checklist" element={<SectionPage kicker="Roma e Veneza" title="Checklist" />} />
+            <Route path="/more/documents" element={<SectionPage kicker="Reservas e bilhetes" title="Documentos" />} />
+            <Route path="/more/budget" element={<SectionPage kicker="4 viajantes · 7 dias" title="Orçamento" />} />
+            <Route path="/more/travelers" element={<SectionPage kicker="Família Fortunato" title="Viajantes" />} />
+            <Route path="/more/settings" element={<SectionPage kicker="Voya" title="Configurações" />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </Suspense>
