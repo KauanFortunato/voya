@@ -1,4 +1,6 @@
 .documents-page {
+  width: 100%;
+  max-width: 100%;
   min-height: 100dvh;
   overflow-x: clip;
   padding: 24px 16px 112px;
@@ -52,11 +54,18 @@
 
 .documents-filters {
   display: flex;
-  overflow: visible;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 14px 1px 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 7px;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+
+.documents-filters::-webkit-scrollbar { display: none; }
 
 .documents-filters button {
   flex: 0 0 auto;
