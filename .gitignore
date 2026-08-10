@@ -11,6 +11,14 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Local agent instructions and implementation planning
+AGENT.md
+AGENTS.md
+PLAN.md
 
 # Editor directories and files
 .vscode/*
