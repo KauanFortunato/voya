@@ -1,5 +1,6 @@
 .documents-page {
   min-height: 100dvh;
+  overflow-x: clip;
   padding: 24px 16px 112px;
 }
 
@@ -51,13 +52,11 @@
 
 .documents-filters {
   display: flex;
-  overflow-x: auto;
+  overflow: visible;
   padding: 14px 1px 10px;
+  flex-wrap: wrap;
   gap: 7px;
-  scrollbar-width: none;
 }
-
-.documents-filters::-webkit-scrollbar { display: none; }
 
 .documents-filters button {
   flex: 0 0 auto;

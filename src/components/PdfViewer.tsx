@@ -37,6 +37,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
   const [page, setPage] = useState(1)
   const [scale, setScale] = useState(1)
   const [progress, setProgress] = useState(0)
+  const pinch = useRef({ initialDistance: 0, initialScale: 1, ratio: 1 })
   const collapsedY = Math.round(screenHeight * 0.53)
 
   const snapTo = (nextExpanded: boolean) => {
@@ -59,6 +60,73 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    const element = viewportRef.current
+    if (!element) return
+
+    const distanceBetweenTouches = (touches: TouchList) => {
+      const [first, second] = [touches[0], touches[1]]
+      return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
+    }
+    const previewPage = (ratio: number) => {
+      const pageElement = element.querySelector<HTMLElement>('.react-pdf__Page')
+      if (!pageElement) return
+      pageElement.style.transformOrigin = 'center top'
+      pageElement.style.willChange = 'transform'
+      pageElement.style.transform = `scale(${ratio})`
+    }
+    const clearPreview = () => {
+      const pageElement = element.querySelector<HTMLElement>('.react-pdf__Page')
+      if (!pageElement) return
+      pageElement.style.transform = ''
+      pageElement.style.transformOrigin = ''
+      pageElement.style.willChange = ''
+    }
+    const startPinch = (event: TouchEvent) => {
+      if (event.touches.length !== 2) return
+      event.preventDefault()
+      pinch.current = {
+        initialDistance: distanceBetweenTouches(event.touches),
+        initialScale: scale,
+        ratio: 1,
+      }
+    }
+    const movePinch = (event: TouchEvent) => {
+      if (event.touches.length !== 2 || !pinch.current.initialDistance) return
+      event.preventDefault()
+      const rawScale = pinch.current.initialScale * (distanceBetweenTouches(event.touches) / pinch.current.initialDistance)
+      const nextScale = Math.min(2.5, Math.max(0.75, rawScale))
+      pinch.current.ratio = nextScale / pinch.current.initialScale
+      previewPage(pinch.current.ratio)
+    }
+    const finishPinch = () => {
+      if (!pinch.current.initialDistance) return
+      const nextScale = Math.min(2.5, Math.max(0.75, pinch.current.initialScale * pinch.current.ratio))
+      pinch.current.initialDistance = 0
+      clearPreview()
+      setScale(nextScale)
+    }
+    const preventNativeGesture = (event: Event) => event.preventDefault()
+
+    element.addEventListener('touchstart', startPinch, { passive: false })
+    element.addEventListener('touchmove', movePinch, { passive: false })
+    element.addEventListener('touchend', finishPinch, { passive: false })
+    element.addEventListener('touchcancel', finishPinch, { passive: false })
+    element.addEventListener('gesturestart', preventNativeGesture, { passive: false })
+    element.addEventListener('gesturechange', preventNativeGesture, { passive: false })
+    element.addEventListener('gestureend', preventNativeGesture, { passive: false })
+    return () => {
+      clearPreview()
+      element.removeEventListener('touchstart', startPinch)
+      element.removeEventListener('touchmove', movePinch)
+      element.removeEventListener('touchend', finishPinch)
+      element.removeEventListener('touchcancel', finishPinch)
+      element.removeEventListener('gesturestart', preventNativeGesture)
+      element.removeEventListener('gesturechange', preventNativeGesture)
+      element.removeEventListener('gestureend', preventNativeGesture)
+    }
+  }, [scale])
 
   useEffect(() => {
     const updateHeight = () => setScreenHeight(window.innerHeight)
@@ -102,7 +170,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
         aria-labelledby="pdf-viewer-title"
         initial={reduceMotion ? false : { opacity: 0, y: collapsedY }}
         animate={animationControls}
-        exit={reduceMotion ? undefined : { opacity: 0, y: 24 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: screenHeight }}
         drag="y"
         dragListener={false}
         dragControls={dragControls}
@@ -187,7 +255,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
             <ZoomOut size={18} aria-hidden="true" />
           </button>
           <span>{Math.round(scale * 100)}%</span>
-          <button type="button" aria-label="Aumentar zoom" disabled={scale >= 1.75} onClick={() => setScale((current) => Math.min(1.75, current + 0.25))}>
+          <button type="button" aria-label="Aumentar zoom" disabled={scale >= 2.5} onClick={() => setScale((current) => Math.min(2.5, current + 0.25))}>
             <ZoomIn size={18} aria-hidden="true" />
           </button>
         </div>
