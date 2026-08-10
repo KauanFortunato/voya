@@ -95,11 +95,19 @@ export default function PlacesPage() {
     <main className="places-page" id="main-content">
       <header className="places-header">
         <div>
-          <p>{places.length} lugares guardados</p>
+          <p>Ideias para a viagem</p>
           <h1>Lugares</h1>
         </div>
         <IconButton icon={Plus} ariaLabel="Adicionar lugar" />
       </header>
+
+      <section className="places-explainer" aria-label="Como usar Lugares">
+        <div>
+          <strong>Guarde primeiro, organize depois</strong>
+          <p>Reúna ideias da família aqui e use o botão + para levar um lugar ao roteiro.</p>
+        </div>
+        <span>{places.length} guardados</span>
+      </section>
 
       <label className="places-search">
         <Search size={19} aria-hidden="true" />

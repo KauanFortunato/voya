@@ -12,6 +12,41 @@
   margin-bottom: 14px;
 }
 
+.places-explainer {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  background: linear-gradient(135deg in oklch, white, var(--color-primary-light));
+  gap: 12px;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+}
+
+.places-explainer strong {
+  font-size: 0.82rem;
+}
+
+.places-explainer p {
+  max-width: 280px;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 0.69rem;
+}
+
+.places-explainer > span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  background: white;
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+}
+
 .places-header p {
   color: var(--color-text-secondary);
   font-size: 0.82rem;

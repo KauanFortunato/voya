@@ -9,7 +9,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 8px;
+}
+
+.itinerary-helper {
+  padding: 0 2px;
   margin-bottom: 14px;
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
 }
 
 .itinerary-header p {
@@ -96,7 +103,10 @@
 }
 
 .itinerary-activity-list {
+  padding: 0;
+  margin: 0;
   border-top: 1px solid var(--color-border);
+  list-style: none;
 }
 
 .itinerary-activity {
@@ -111,7 +121,34 @@
 }
 
 .itinerary-grip {
+  display: grid;
+  width: 28px;
+  height: 42px;
+  place-items: center;
+  padding: 0;
+  margin-left: -5px;
+  border: 0;
+  border-radius: 9px;
   color: #a5b1be;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition:
+    color 140ms var(--ease-out),
+    background-color 140ms var(--ease-out);
+}
+
+.itinerary-grip:hover,
+.itinerary-grip:focus-visible {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+}
+
+.itinerary-grip:active {
+  cursor: grabbing;
 }
 
 .itinerary-activity time {
@@ -207,6 +244,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .itinerary-day,
+  .itinerary-grip,
   .itinerary-move-actions button,
   .itinerary-add {
     transition-duration: 0.01ms;
