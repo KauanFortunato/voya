@@ -194,6 +194,21 @@
   line-height: 1.25;
 }
 
+.itinerary-activity__content {
+  min-width: 0;
+}
+
+.itinerary-activity__main {
+  display: block;
+  width: 100%;
+  padding: 5px 0;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
 .itinerary-activity p {
   margin-top: 3px;
   color: var(--color-text-secondary);
@@ -298,11 +313,143 @@
   transform: scale(0.97);
 }
 
+.itinerary-editor-layer {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+}
+
+.itinerary-editor-backdrop {
+  position: absolute;
+  border: 0;
+  inset: 0;
+  background: rgb(20 37 54 / 42%);
+  backdrop-filter: blur(3px);
+}
+
+.itinerary-editor {
+  position: absolute;
+  right: max(0px, calc(50% - 240px));
+  bottom: 0;
+  left: max(0px, calc(50% - 240px));
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: 13px 18px calc(22px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  background: var(--color-background);
+  box-shadow: 0 -14px 40px rgb(20 37 54 / 18%);
+}
+
+.itinerary-editor__handle {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  background: #c9d4dd;
+}
+
+.itinerary-editor__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 17px;
+  gap: 14px;
+}
+
+.itinerary-editor__heading span {
+  color: var(--color-primary-dark);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.itinerary-editor__heading h2 {
+  margin-top: 2px;
+  font-size: 1.22rem;
+}
+
+.itinerary-editor__heading button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+}
+
+.itinerary-editor__field {
+  display: grid;
+  margin-top: 11px;
+  gap: 5px;
+}
+
+.itinerary-editor__field > span {
+  color: var(--color-text-secondary);
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.itinerary-editor__field input,
+.itinerary-editor__field textarea {
+  width: 100%;
+  border: 0;
+  border-radius: 13px;
+  color: var(--color-text);
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 9%);
+  font-size: 0.78rem;
+}
+
+.itinerary-editor__field input {
+  min-height: 45px;
+  padding: 0 12px;
+}
+
+.itinerary-editor__field textarea {
+  min-height: 76px;
+  padding: 11px 12px;
+  resize: vertical;
+}
+
+.itinerary-editor__times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.itinerary-editor__storage {
+  margin-top: 13px;
+  color: var(--color-text-secondary);
+  font-size: 0.62rem;
+}
+
+.itinerary-editor__save {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 15px;
+  border: 0;
+  border-radius: 15px;
+  color: white;
+  background: var(--color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  gap: 7px;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .itinerary-day,
   .itinerary-grip,
   .itinerary-move-actions button,
   .itinerary-free-action,
+  .itinerary-editor__save,
   .itinerary-add {
     transition-duration: 0.01ms;
   }

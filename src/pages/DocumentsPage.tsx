@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import {
   BedDouble,
   BusFront,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 
 import SubpageHeader from '../components/SubpageHeader'
+import ModalPortal from '../components/ModalPortal'
 import {
   documentCategories,
   documentSeed,
@@ -22,6 +23,8 @@ import {
   type TripDocument,
 } from '../data/documents'
 import './DocumentsPage.css'
+
+const PdfViewer = lazy(() => import('../components/PdfViewer'))
 
 const categoryIcons: Record<DocumentCategory, LucideIcon> = {
   Voo: Plane,
@@ -38,6 +41,7 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<TripDocument[]>(documentSeed)
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
   const [selected, setSelected] = useState<TripDocument | null>(null)
+  const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
 
   const visibleDocuments = useMemo(
     () => documents.filter((document) => category === 'Todos' || document.category === category),
@@ -66,10 +70,21 @@ export default function DocumentsPage() {
   }
 
   const openFile = (document: TripDocument) => {
-    if (!document.localFile) return
-    const url = URL.createObjectURL(document.localFile)
-    window.open(url, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    if (document.localFile) {
+      const url = URL.createObjectURL(document.localFile)
+      setSelected(null)
+      setViewer({ title: document.title, source: url, temporary: true })
+      return
+    }
+    if (document.fileUrl) {
+      setSelected(null)
+      setViewer({ title: document.title, source: document.fileUrl, temporary: false })
+    }
+  }
+
+  const closeViewer = () => {
+    if (viewer?.temporary) URL.revokeObjectURL(viewer.source)
+    setViewer(null)
   }
 
   return (
@@ -163,7 +178,7 @@ export default function DocumentsPage() {
         )}
       </section>
 
-      <AnimatePresence>
+      <ModalPortal open={Boolean(selected)} onClose={() => setSelected(null)}>
         {selected && (
           <div className="document-sheet-layer" role="presentation">
             <motion.button
@@ -215,9 +230,9 @@ export default function DocumentsPage() {
 
               {selected.note && <p className="document-sheet__note">{selected.note}</p>}
 
-              {selected.localFile ? (
+              {selected.localFile || selected.fileUrl ? (
                 <button className="document-sheet__primary" type="button" onClick={() => openFile(selected)}>
-                  Abrir ficheiro
+                  Visualizar no app
                 </button>
               ) : (
                 <p className="document-sheet__notice">Os dados são demonstrativos. O ficheiro real será ligado à NAS na próxima etapa.</p>
@@ -225,7 +240,15 @@ export default function DocumentsPage() {
             </motion.section>
           </div>
         )}
-      </AnimatePresence>
+      </ModalPortal>
+
+      <ModalPortal open={Boolean(viewer)} onClose={closeViewer}>
+        {viewer && (
+          <Suspense fallback={<div className="pdf-viewer-lazy" role="status">A preparar visualizador…</div>}>
+            <PdfViewer title={viewer.title} source={viewer.source} onClose={closeViewer} />
+          </Suspense>
+        )}
+      </ModalPortal>
     </main>
   )
 }

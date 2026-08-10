@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import {
   Bell,
   Check,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 
 import IconButton from '../components/IconButton'
+import ModalPortal from '../components/ModalPortal'
 import { today } from '../data/trip'
 import './TodayPage.css'
 
@@ -134,8 +135,8 @@ export default function TodayPage() {
         </section>
       </main>
 
-      <AnimatePresence>
-        {detailsOpen && currentActivity && (
+      <ModalPortal open={detailsOpen && Boolean(currentActivity)} onClose={() => setDetailsOpen(false)}>
+        {currentActivity && (
           <motion.div
             className="sheet-backdrop"
             initial={reduceMotion ? false : { opacity: 0 }}
@@ -170,7 +171,7 @@ export default function TodayPage() {
             </motion.section>
           </motion.div>
         )}
-      </AnimatePresence>
+      </ModalPortal>
     </>
   )
 }
