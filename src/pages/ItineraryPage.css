@@ -1,0 +1,214 @@
+.itinerary-page {
+  min-height: 100dvh;
+  padding: 24px 16px 106px;
+}
+
+.itinerary-header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.itinerary-header p {
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
+}
+
+.itinerary-header h1 {
+  margin-top: 2px;
+  font-size: clamp(1.75rem, 8vw, 2rem);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+.itinerary-days {
+  display: grid;
+  gap: 11px;
+}
+
+.itinerary-day {
+  overflow: hidden;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+  transition: box-shadow 180ms var(--ease-out);
+}
+
+.itinerary-day.is-open {
+  box-shadow: var(--shadow-card);
+}
+
+.itinerary-day__header {
+  display: grid;
+  width: 100%;
+  min-height: 78px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 0;
+  grid-template-columns: 46px 1fr auto;
+  gap: 12px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.itinerary-date {
+  display: grid;
+  width: 44px;
+  height: 48px;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.itinerary-day__summary {
+  display: grid;
+  min-width: 0;
+}
+
+.itinerary-day__summary small,
+.itinerary-day__summary span {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itinerary-day__summary strong {
+  margin-block: 1px;
+  font-size: 0.98rem;
+}
+
+.itinerary-day__header > svg {
+  color: var(--color-text-secondary);
+}
+
+.itinerary-day__body {
+  padding: 0 14px 14px;
+  transform-origin: top center;
+}
+
+.itinerary-activity-list {
+  border-top: 1px solid var(--color-border);
+}
+
+.itinerary-activity {
+  display: grid;
+  min-height: 72px;
+  align-items: center;
+  padding: 10px 0;
+  grid-template-columns: 18px 44px 1fr auto;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: white;
+}
+
+.itinerary-grip {
+  color: #a5b1be;
+}
+
+.itinerary-activity time {
+  color: var(--color-primary-dark);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+.itinerary-activity h2 {
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.itinerary-activity p {
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 0.66rem;
+}
+
+.itinerary-move-actions {
+  display: grid;
+  gap: 3px;
+}
+
+.itinerary-move-actions button {
+  display: grid;
+  width: 29px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+  cursor: pointer;
+  transition:
+    color 140ms var(--ease-out),
+    background-color 140ms var(--ease-out),
+    transform 110ms var(--ease-out);
+}
+
+.itinerary-move-actions button:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+.itinerary-move-actions button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.itinerary-cost {
+  display: flex;
+  padding-top: 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.74rem;
+}
+
+.itinerary-cost span {
+  color: var(--color-text-secondary);
+}
+
+.itinerary-cost strong {
+  color: var(--color-primary-dark);
+}
+
+.itinerary-add {
+  display: inline-flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 15px;
+  color: white;
+  background: var(--color-primary-dark);
+  font-weight: 780;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgb(47 128 237 / 20%);
+  transition:
+    transform 120ms var(--ease-out),
+    filter 180ms var(--ease-out);
+}
+
+.itinerary-add:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .itinerary-day,
+  .itinerary-move-actions button,
+  .itinerary-add {
+    transition-duration: 0.01ms;
+  }
+}
