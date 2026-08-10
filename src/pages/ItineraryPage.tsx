@@ -7,24 +7,22 @@ import {
   useReducedMotion,
 } from 'motion/react'
 import { ChevronDown, ChevronUp, GripVertical, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import IconButton from '../components/IconButton'
 import {
   tripDays,
+  formatDuration,
+  tripDateLabel,
+  tripName,
   type CalendarActivity,
   type CalendarDay,
 } from '../data/itinerary'
 import './ItineraryPage.css'
 
-const dailyCosts: Record<number, number> = {
-  12: 126,
-  13: 94,
-  14: 158,
-  15: 82,
-}
-
 type DraggableActivityProps = {
   activity: CalendarActivity
+  isoDate: string
   activityIndex: number
   activityCount: number
   reduceMotion: boolean
@@ -33,6 +31,7 @@ type DraggableActivityProps = {
 
 function DraggableActivity({
   activity,
+  isoDate,
   activityIndex,
   activityCount,
   reduceMotion,
@@ -43,7 +42,7 @@ function DraggableActivity({
   return (
     <Reorder.Item
       as="article"
-      className="itinerary-activity"
+      className={`itinerary-activity${activity.isFreeSlot ? ' is-free-slot' : ''}`}
       value={activity}
       drag="y"
       dragListener={false}
@@ -70,10 +69,26 @@ function DraggableActivity({
       >
         <GripVertical size={18} aria-hidden="true" />
       </button>
-      <time>{activity.time}</time>
+      <time>
+        {activity.time}
+        {activity.endTime && <small>–{activity.endTime}</small>}
+      </time>
       <div>
         <h2>{activity.title}</h2>
-        <p>{activity.category} · {activity.address}</p>
+        <p>
+          {activity.isFreeSlot && activity.durationMinutes
+            ? `${formatDuration(activity.durationMinutes)} disponíveis`
+            : `${activity.category}${activity.address ? ` · ${activity.address}` : ''}`}
+        </p>
+        {activity.isFreeSlot && (
+          <Link
+            className="itinerary-free-action"
+            to={`/places?date=${isoDate}&start=${activity.time}&end=${activity.endTime ?? ''}`}
+          >
+            <Plus size={14} aria-hidden="true" />
+            Adicionar aqui
+          </Link>
+        )}
       </div>
       <span className="itinerary-move-actions">
         <button
@@ -100,9 +115,9 @@ function DraggableActivity({
 export default function ItineraryPage() {
   const reduceMotion = useReducedMotion()
   const [days, setDays] = useState<CalendarDay[]>(tripDays)
-  const [openDays, setOpenDays] = useState<number[]>([12])
+  const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
 
-  const toggleDay = (date: number) => {
+  const toggleDay = (date: string) => {
     setOpenDays((current) =>
       current.includes(date) ? current.filter((item) => item !== date) : [...current, date],
     )
@@ -136,29 +151,29 @@ export default function ItineraryPage() {
     <main className="itinerary-page" id="main-content">
       <header className="itinerary-header">
         <div>
-          <p>7 dias · 2 cidades</p>
+          <p>{tripDateLabel} · 10 dias</p>
           <h1>Roteiro</h1>
         </div>
         <IconButton icon={Plus} ariaLabel="Adicionar atividade" />
       </header>
 
       <p className="itinerary-helper">
-        Segure o puxador de uma atividade e arraste para mudar a ordem do dia.
+        {tripName} · os blocos azuis mostram onde ainda cabe um plano. Segure o puxador para reorganizar.
       </p>
 
       <div className="itinerary-days">
         {days.map((day, dayIndex) => {
-          const isOpen = openDays.includes(day.date)
+          const isOpen = openDays.includes(day.isoDate)
           return (
-            <section className={`itinerary-day${isOpen ? ' is-open' : ''}`} key={day.date}>
+            <section className={`itinerary-day${isOpen ? ' is-open' : ''}`} key={day.isoDate}>
               <button
                 className="itinerary-day__header"
                 type="button"
                 aria-expanded={isOpen}
-                aria-controls={`itinerary-day-${day.date}`}
-                onClick={() => toggleDay(day.date)}
+                aria-controls={`itinerary-day-${day.isoDate}`}
+                onClick={() => toggleDay(day.isoDate)}
               >
-                <span className="itinerary-date">{day.date}</span>
+                <span className="itinerary-date"><strong>{day.date}</strong><small>{day.month}</small></span>
                 <span className="itinerary-day__summary">
                   <small>{day.weekday}</small>
                   <strong>{day.city}</strong>
@@ -171,7 +186,7 @@ export default function ItineraryPage() {
                 {isOpen && (
                   <motion.div
                     className="itinerary-day__body"
-                    id={`itinerary-day-${day.date}`}
+                    id={`itinerary-day-${day.isoDate}`}
                     initial={reduceMotion ? false : { opacity: 0, y: -6, filter: 'blur(2px)' }}
                     animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                     exit={reduceMotion ? undefined : { opacity: 0, y: -3, filter: 'blur(1px)' }}
@@ -188,6 +203,7 @@ export default function ItineraryPage() {
                         <DraggableActivity
                           key={activity.id}
                           activity={activity}
+                          isoDate={day.isoDate}
                           activityIndex={activityIndex}
                           activityCount={day.activities.length}
                           reduceMotion={Boolean(reduceMotion)}
@@ -195,9 +211,9 @@ export default function ItineraryPage() {
                         />
                       ))}
                     </Reorder.Group>
-                    <div className="itinerary-cost">
-                      <span>Custo estimado do dia</span>
-                      <strong>€{dailyCosts[day.date] ?? 0} por pessoa</strong>
+                    <div className={`itinerary-availability${day.freeMinutes ? ' has-free-time' : ''}`}>
+                      <span>{day.freeMinutes ? 'Tempo livre identificado' : 'Disponibilidade'}</span>
+                      <strong>{day.freeMinutes ? formatDuration(day.freeMinutes) : 'A confirmar'}</strong>
                     </div>
                   </motion.div>
                 )}

@@ -201,6 +201,17 @@
 .document-travelers > div { display: flex; flex-wrap: wrap; margin-top: 9px; gap: 7px; }
 .document-travelers span { display: inline-flex; align-items: center; padding: 5px 9px 5px 5px; border-radius: 999px; background: white; font-size: 0.66rem; font-weight: 700; gap: 6px; }
 .document-travelers i { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; color: var(--color-primary-dark); background: var(--color-primary-light); font-size: 0.52rem; font-style: normal; }
+.document-travelers em { padding: 2px 6px; border-radius: 999px; color: #94600f; background: #fff4dd; font-size: 0.53rem; font-style: normal; }
+
+.document-sheet .document-sheet__note {
+  padding: 11px 12px;
+  margin-top: 13px;
+  border-radius: 13px;
+  color: var(--color-text-secondary);
+  background: white;
+  font-size: 0.67rem;
+  line-height: 1.5;
+}
 
 .document-sheet__primary {
   width: 100%;

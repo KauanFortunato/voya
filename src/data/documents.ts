@@ -20,6 +20,8 @@ export type TripDocument = {
   travelerIds: TravelerId[]
   fileName?: string
   localFile?: File
+  note?: string
+  travelerRoles?: Partial<Record<TravelerId, string>>
 }
 
 export const travelers: Record<TravelerId, { name: string; initials: string }> = {
@@ -39,7 +41,7 @@ export const documentCategories: Array<'Todos' | DocumentCategory> = [
   'Outro',
 ]
 
-export const documentSeed: TripDocument[] = [
+const fallbackDocuments: TripDocument[] = [
   {
     id: 'flight-lis-rome',
     title: 'Voo Lisboa → Roma',
@@ -87,3 +89,57 @@ export const documentSeed: TripDocument[] = [
     travelerIds: ['kauan'],
   },
 ]
+
+const categoryMap: Record<string, DocumentCategory> = {
+  atracao: 'Ingresso',
+  comboio: 'Transporte',
+  hospedagem: 'Hospedagem',
+  roteiro: 'Outro',
+  seguro: 'Seguro',
+  transporte_publico: 'Transporte',
+  voos: 'Voo',
+}
+
+const travelerIdMap: Record<string, TravelerId> = {
+  Anicio: 'anicio',
+  Helieny: 'helieny',
+  Kairon: 'kairon',
+  Kauan: 'kauan',
+}
+
+function formatDocumentDate(date: string | null) {
+  if (!date) return 'Sem data específica'
+  return new Intl.DateTimeFormat('pt-PT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T12:00:00Z`))
+}
+
+function mapDocument(document: RawTripDocument, index: number): TripDocument {
+  const travelerRoles = Object.fromEntries(
+    Object.entries(document.classificacao_viajantes ?? {}).flatMap(([name, role]) => {
+      const id = travelerIdMap[name]
+      return id ? [[id, role === 'estudante_menor_26' ? 'Estudante < 26' : 'Adulto']] : []
+    }),
+  ) as Partial<Record<TravelerId, string>>
+
+  return {
+    id: `imported-document-${index}`,
+    title: document.titulo,
+    category: categoryMap[document.categoria] ?? 'Outro',
+    dateLabel: formatDocumentDate(document.data_relevante),
+    bookingCode: document.codigo_reserva ?? undefined,
+    status: document.status === 'confirmado' ? 'Confirmado' : 'Atenção',
+    travelerIds: document.viajantes.flatMap((name) => travelerIdMap[name] ?? []),
+    fileName: document.nome_arquivo ?? undefined,
+    note: document.observacoes ?? undefined,
+    travelerRoles,
+  }
+}
+
+const importedDocuments = (privateTrip?.documentos ?? []).map(mapDocument)
+
+export const documentSeed = importedDocuments.length ? importedDocuments : fallbackDocuments
+import { privateTrip, type RawTripDocument } from './privateTrip'

@@ -10,6 +10,7 @@
     "db:provision": "tsx --env-file=.env server/db/provision.ts",
     "db:migrate": "tsx --env-file=.env server/db/migrate.ts",
     "db:seed": "tsx --env-file=.env server/db/seed.ts",
+    "data:import": "node scripts/import-trip.mjs",
     "lint": "oxlint",
     "start:api": "tsx --env-file=.env server/index.ts",
     "preview": "vite preview"

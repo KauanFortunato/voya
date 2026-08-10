@@ -63,15 +63,27 @@
 }
 
 .itinerary-date {
-  display: grid;
+  display: flex;
   width: 44px;
   height: 48px;
-  place-items: center;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
   border-radius: 13px;
   color: var(--color-primary-dark);
   background: var(--color-primary-light);
+}
+
+.itinerary-date strong {
   font-size: 1rem;
-  font-weight: 850;
+  line-height: 1;
+}
+
+.itinerary-date small {
+  margin-top: 3px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .itinerary-day__summary {
@@ -120,6 +132,18 @@
   background: white;
 }
 
+.itinerary-activity.is-free-slot {
+  margin: 7px 0;
+  padding: 12px 8px 12px 0;
+  border: 1px dashed rgb(47 128 237 / 28%);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f1f9ff, #eaf6ff);
+}
+
+.itinerary-activity.is-free-slot + .itinerary-activity {
+  border-top: 0;
+}
+
 .itinerary-grip {
   display: grid;
   width: 28px;
@@ -158,6 +182,13 @@
   font-weight: 800;
 }
 
+.itinerary-activity time small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: 0.55rem;
+}
+
 .itinerary-activity h2 {
   font-size: 0.84rem;
   line-height: 1.25;
@@ -167,6 +198,27 @@
   margin-top: 3px;
   color: var(--color-text-secondary);
   font-size: 0.66rem;
+}
+
+.itinerary-free-action {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 9px;
+  margin-top: 8px;
+  border-radius: 9px;
+  color: var(--color-primary-dark);
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 12%);
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-decoration: none;
+  gap: 4px;
+  transition: transform 120ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.itinerary-free-action:active {
+  transform: scale(0.97);
 }
 
 .itinerary-move-actions {
@@ -200,7 +252,7 @@
   cursor: default;
 }
 
-.itinerary-cost {
+.itinerary-availability {
   display: flex;
   padding-top: 13px;
   align-items: center;
@@ -209,11 +261,15 @@
   font-size: 0.74rem;
 }
 
-.itinerary-cost span {
+.itinerary-availability span {
   color: var(--color-text-secondary);
 }
 
-.itinerary-cost strong {
+.itinerary-availability strong {
+  color: var(--color-text-secondary);
+}
+
+.itinerary-availability.has-free-time strong {
   color: var(--color-primary-dark);
 }
 
@@ -246,6 +302,7 @@
   .itinerary-day,
   .itinerary-grip,
   .itinerary-move-actions button,
+  .itinerary-free-action,
   .itinerary-add {
     transition-duration: 0.01ms;
   }

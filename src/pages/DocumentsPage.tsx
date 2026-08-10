@@ -57,6 +57,7 @@ export default function DocumentsPage() {
       travelerIds: ['kauan'],
       fileName: file.name,
       localFile: file,
+      note: 'Ficheiro importado localmente e ainda não sincronizado com a NAS.',
     }
     setDocuments((current) => [imported, ...current])
     setCategory('Todos')
@@ -203,10 +204,16 @@ export default function DocumentsPage() {
                 <strong>Viajantes associados</strong>
                 <div>
                   {selected.travelerIds.map((id) => (
-                    <span key={id}><i>{travelers[id].initials}</i>{travelers[id].name}</span>
+                    <span key={id}>
+                      <i>{travelers[id].initials}</i>
+                      {travelers[id].name}
+                      {selected.travelerRoles?.[id] && <em>{selected.travelerRoles[id]}</em>}
+                    </span>
                   ))}
                 </div>
               </div>
+
+              {selected.note && <p className="document-sheet__note">{selected.note}</p>}
 
               {selected.localFile ? (
                 <button className="document-sheet__primary" type="button" onClick={() => openFile(selected)}>
