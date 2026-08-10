@@ -24,6 +24,7 @@ const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
 const PlacesPage = lazy(() => import('./pages/PlacesPage'))
 const MorePage = lazy(() => import('./pages/MorePage'))
+const OverviewPage = lazy(() => import('./pages/OverviewPage'))
 const SectionPage = lazy(() => import('./pages/SectionPage'))
 
 const navigation = [
@@ -75,7 +76,7 @@ function AnimatedRoutes() {
             <Route path="/itinerary" element={<ItineraryPage />} />
             <Route path="/places" element={<PlacesPage />} />
             <Route path="/more" element={<MorePage />} />
-            <Route path="/more/overview" element={<SectionPage kicker="12–18 setembro" title="A sua viagem" />} />
+            <Route path="/more/overview" element={<OverviewPage />} />
             <Route path="/more/checklist" element={<SectionPage kicker="Roma e Veneza" title="Checklist" />} />
             <Route path="/more/documents" element={<SectionPage kicker="Reservas e bilhetes" title="Documentos" />} />
             <Route path="/more/budget" element={<SectionPage kicker="4 viajantes · 7 dias" title="Orçamento" />} />
