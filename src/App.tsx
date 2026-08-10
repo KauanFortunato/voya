@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   CalendarDays,
@@ -35,6 +35,39 @@ const navigation = [
   { to: '/places', label: 'Lugares', icon: MapPinned },
   { to: '/more', label: 'Mais', icon: MoreHorizontal },
 ]
+
+const primaryPaths = new Set(navigation.map(({ to }) => to))
+const scrollPositions = new Map<string, number>()
+
+function ScrollPositionManager() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    const previousRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+
+    return () => {
+      window.history.scrollRestoration = previousRestoration
+    }
+  }, [])
+
+  useEffect(() => {
+    const targetPosition = primaryPaths.has(pathname)
+      ? (scrollPositions.get(pathname) ?? 0)
+      : 0
+    const restorePosition = () => window.scrollTo({ top: targetPosition, behavior: 'auto' })
+
+    restorePosition()
+    const afterTransition = window.setTimeout(restorePosition, 320)
+
+    return () => {
+      window.clearTimeout(afterTransition)
+      if (primaryPaths.has(pathname)) scrollPositions.set(pathname, window.scrollY)
+    }
+  }, [pathname])
+
+  return null
+}
 
 function BottomNavigation() {
   return (
@@ -91,16 +124,26 @@ function AnimatedRoutes() {
   )
 }
 
+function AppShell() {
+  const { pathname } = useLocation()
+  const isMoreSubpage = pathname.startsWith('/more/')
+
+  return (
+    <div className={`app-shell${isMoreSubpage ? ' has-subpage' : ''}`}>
+      <a className="skip-link" href="#main-content">
+        Ir para o conteúdo
+      </a>
+      <ScrollPositionManager />
+      <AnimatedRoutes />
+      {!isMoreSubpage && <BottomNavigation />}
+    </div>
+  )
+}
+
 function App() {
   return (
     <HashRouter>
-      <div className="app-shell">
-        <a className="skip-link" href="#main-content">
-          Ir para o conteúdo
-        </a>
-        <AnimatedRoutes />
-        <BottomNavigation />
-      </div>
+      <AppShell />
     </HashRouter>
   )
 }

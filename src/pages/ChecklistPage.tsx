@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Check, Plus, UserRound, UsersRound } from 'lucide-react'
 
-import IconButton from '../components/IconButton'
+import SubpageHeader from '../components/SubpageHeader'
 import {
   checklistGroups as checklistSeed,
   type ChecklistGroup,
@@ -47,13 +47,12 @@ export default function ChecklistPage() {
 
   return (
     <main className="checklist-page" id="main-content">
-      <header className="checklist-header">
-        <div>
-          <p>Roma e Veneza</p>
-          <h1>Checklist</h1>
-        </div>
-        <IconButton icon={Plus} ariaLabel="Adicionar item" />
-      </header>
+      <SubpageHeader
+        kicker="Roma e Veneza"
+        title="Checklist"
+        actionIcon={Plus}
+        actionLabel="Adicionar item"
+      />
 
       <div className="checklist-scope" role="tablist" aria-label="Tipo de checklist">
         {scopes.map(({ value, label, icon: Icon }) => (

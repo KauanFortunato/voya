@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import IconButton from '../components/IconButton'
+import SubpageHeader from '../components/SubpageHeader'
 import './OverviewPage.css'
 
 const planningItems = [
@@ -23,13 +23,12 @@ const planningItems = [
 export default function OverviewPage() {
   return (
     <main className="overview-page" id="main-content">
-      <header className="overview-header">
-        <div>
-          <p>12–18 setembro 2026</p>
-          <h1>A sua viagem</h1>
-        </div>
-        <IconButton icon={Pencil} ariaLabel="Editar viagem" />
-      </header>
+      <SubpageHeader
+        kicker="12–18 setembro 2026"
+        title="A sua viagem"
+        actionIcon={Pencil}
+        actionLabel="Editar viagem"
+      />
 
       <section className="overview-hero" aria-labelledby="overview-trip-title">
         <span className="overview-hero__eyebrow">Próxima viagem</span>

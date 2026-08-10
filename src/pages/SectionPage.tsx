@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 
-import IconButton from '../components/IconButton'
+import SubpageHeader from '../components/SubpageHeader'
 import './SectionPage.css'
 
 type SectionPageProps = {
@@ -11,13 +11,12 @@ type SectionPageProps = {
 export default function SectionPage({ kicker, title }: SectionPageProps) {
   return (
     <main className="section-page" id="main-content">
-      <header className="section-page__header">
-        <div>
-          <p>{kicker}</p>
-          <h1>{title}</h1>
-        </div>
-        <IconButton icon={Plus} ariaLabel={`Adicionar em ${title}`} />
-      </header>
+      <SubpageHeader
+        kicker={kicker}
+        title={title}
+        actionIcon={Plus}
+        actionLabel={`Adicionar em ${title}`}
+      />
       <section className="section-page__placeholder" aria-labelledby="section-progress-title">
         <span className="section-page__eyebrow">Em construção</span>
         <h2 id="section-progress-title">Esta área será a próxima etapa</h2>

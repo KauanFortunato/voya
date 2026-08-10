@@ -3,26 +3,6 @@
   padding: 24px 16px 104px;
 }
 
-.section-page__header {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-page__header p {
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-}
-
-.section-page__header h1 {
-  margin-top: 2px;
-  font-size: clamp(1.75rem, 8vw, 2rem);
-  line-height: 1.05;
-  letter-spacing: -0.045em;
-}
-
 .section-page__placeholder {
   padding: 28px 22px;
   margin-top: 18px;

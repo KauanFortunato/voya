@@ -12,6 +12,10 @@
   min-height: 100dvh;
 }
 
+.app-shell.has-subpage #main-content {
+  padding-bottom: 32px;
+}
+
 .skip-link {
   position: fixed;
   z-index: 100;

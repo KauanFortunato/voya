@@ -3,27 +3,6 @@
   padding: 24px 16px 106px;
 }
 
-.overview-header {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.overview-header p {
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
-}
-
-.overview-header h1 {
-  margin-top: 2px;
-  font-size: clamp(1.75rem, 8vw, 2rem);
-  line-height: 1.05;
-  letter-spacing: -0.045em;
-}
-
 .overview-hero {
   position: relative;
   overflow: hidden;
