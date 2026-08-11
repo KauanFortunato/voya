@@ -7,6 +7,8 @@ const environmentSchema = z.object({
   VOYA_API_HOST: z.string().default('127.0.0.1'),
   VOYA_API_PORT: z.coerce.number().int().positive().default(3333),
   VOYA_BOOTSTRAP_PASSWORD: z.string().min(8).optional(),
+  VOYA_DOCUMENTS_PATH: z.string().min(1).default('./.data/documents'),
+  VOYA_MAX_DOCUMENT_SIZE_MB: z.coerce.number().int().min(1).max(100).default(25),
 })
 
 export type Environment = z.infer<typeof environmentSchema>

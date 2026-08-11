@@ -1,11 +1,21 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import cookie from '@fastify/cookie'
+import multipart from '@fastify/multipart'
 import Fastify from 'fastify'
+import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { readEnvironment } from './config.ts'
 import { createDatabaseClient } from './db/client.ts'
+import {
+  ensureDocumentsStorage,
+  isAllowedDocumentMimeType,
+  normalizeOriginalFilename,
+  openDocumentFile,
+  removeDocumentFile,
+  storeDocumentFile,
+} from './documents/storage.ts'
 import { verifyPassword } from './security/password.ts'
 
 const sessionCookie = 'voya_session'
@@ -13,6 +23,11 @@ const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
 const loginSchema = z.object({
   name: z.string().trim().min(1).max(80),
   password: z.string().min(1).max(256),
+})
+const documentMetadataSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  category: z.enum(['Voo', 'Hospedagem', 'Transporte', 'Ingresso', 'Seguro', 'Outro']).default('Outro'),
+  travelerIds: z.array(z.enum(['kauan', 'kairon', 'helieny', 'anicio'])).min(1),
 })
 
 function hashSessionToken(token: string) {
@@ -25,6 +40,14 @@ async function start() {
   const app = Fastify({ logger: true })
 
   await app.register(cookie)
+  await app.register(multipart, {
+    limits: {
+      files: 1,
+      fileSize: environment.VOYA_MAX_DOCUMENT_SIZE_MB * 1024 * 1024,
+      fields: 8,
+    },
+  })
+  await ensureDocumentsStorage(environment.VOYA_DOCUMENTS_PATH)
 
   app.addHook('onClose', async () => {
     await sql.end()
@@ -34,6 +57,37 @@ async function start() {
     const [database] = await sql<{ now: Date }[]>`select now() as now`
     return { status: 'ok', databaseTime: database?.now }
   })
+
+  async function authenticate(request: FastifyRequest) {
+    const token = request.cookies[sessionCookie]
+    if (!token) return null
+
+    const [user] = await sql<{
+      id: string
+      displayName: string
+      role: 'organizer' | 'traveler'
+    }[]>`
+      select u.id, u.display_name, hm.role
+      from sessions s
+      join users u on u.id = s.user_id
+      join household_members hm on hm.user_id = u.id
+      where s.token_hash = ${hashSessionToken(token)} and s.expires_at > now()
+      limit 1
+    `
+    return user ?? null
+  }
+
+  async function getCurrentTrip(userId: string) {
+    const [trip] = await sql<{ id: string; title: string }[]>`
+      select t.id, t.title
+      from trips t
+      join trip_members tm on tm.trip_id = t.id
+      where tm.user_id = ${userId}
+      order by t.start_date desc
+      limit 1
+    `
+    return trip ?? null
+  }
 
   app.post('/api/auth/login', async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body)
@@ -75,22 +129,7 @@ async function start() {
   })
 
   app.get('/api/auth/me', async (request, reply) => {
-    const token = request.cookies[sessionCookie]
-    if (!token) return reply.code(401).send({ error: 'Sessão não encontrada' })
-
-    const [user] = await sql<{
-      id: string
-      displayName: string
-      role: 'organizer' | 'traveler'
-    }[]>`
-      select u.id, u.display_name, hm.role
-      from sessions s
-      join users u on u.id = s.user_id
-      join household_members hm on hm.user_id = u.id
-      where s.token_hash = ${hashSessionToken(token)} and s.expires_at > now()
-      limit 1
-    `
-
+    const user = await authenticate(request)
     if (!user) return reply.code(401).send({ error: 'Sessão inválida ou expirada' })
     return { user }
   })
@@ -100,6 +139,203 @@ async function start() {
     if (token) await sql`delete from sessions where token_hash = ${hashSessionToken(token)}`
     reply.clearCookie(sessionCookie, { path: '/' })
     return reply.code(204).send()
+  })
+
+  app.get('/api/documents', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver os documentos' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const documents = await sql<{
+      id: string
+      title: string
+      category: string
+      bookingCode: string | null
+      status: 'draft' | 'confirmed' | 'attention' | 'expired'
+      startsAt: Date | null
+      originalFilename: string
+      mimeType: string
+      fileSize: string
+      createdAt: Date
+      travelerIds: string[]
+    }[]>`
+      select
+        d.id, d.title, d.category, d.booking_code, d.status, d.starts_at,
+        d.original_filename, d.mime_type, d.file_size, d.created_at,
+        coalesce(
+          array_agg(lower(traveler.display_name) order by traveler.display_name)
+            filter (where traveler.id is not null),
+          array[]::text[]
+        ) as traveler_ids
+      from documents d
+      join trip_members viewer on viewer.trip_id = d.trip_id and viewer.user_id = ${user.id}
+      left join document_travelers dt on dt.document_id = d.id
+      left join users traveler on traveler.id = dt.user_id
+      where d.trip_id = ${trip.id}
+      group by d.id
+      order by d.created_at desc
+    `
+
+    return { trip, documents }
+  })
+
+  app.post('/api/documents', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para importar documentos' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const fields: Record<string, string> = {}
+    let uploaded: { storagePath: string; fileSize: number } | null = null
+    let filename = ''
+    let mimeType = ''
+
+    try {
+      for await (const part of request.parts()) {
+        if (part.type === 'field') {
+          fields[part.fieldname] = String(part.value)
+          continue
+        }
+
+        if (uploaded || part.fieldname !== 'file') {
+          part.file.resume()
+          if (uploaded) await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+          return reply.code(400).send({ error: 'Envie apenas um ficheiro no campo file' })
+        }
+        if (!isAllowedDocumentMimeType(part.mimetype)) {
+          part.file.resume()
+          return reply.code(415).send({ error: 'Use um ficheiro PDF, JPG, PNG ou WebP' })
+        }
+
+        filename = normalizeOriginalFilename(part.filename)
+        mimeType = part.mimetype
+        uploaded = await storeDocumentFile(
+          environment.VOYA_DOCUMENTS_PATH,
+          trip.id,
+          mimeType,
+          part.file,
+        )
+        if (part.file.truncated) {
+          await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+          return reply.code(413).send({
+            error: `O ficheiro deve ter no máximo ${environment.VOYA_MAX_DOCUMENT_SIZE_MB} MB`,
+          })
+        }
+      }
+    } catch (error) {
+      if (uploaded) await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      if (error instanceof app.multipartErrors.RequestFileTooLargeError) {
+        return reply.code(413).send({
+          error: `O ficheiro deve ter no máximo ${environment.VOYA_MAX_DOCUMENT_SIZE_MB} MB`,
+        })
+      }
+      throw error
+    }
+
+    if (!uploaded) return reply.code(400).send({ error: 'Selecione um ficheiro para importar' })
+
+    let travelerIds: unknown
+    try {
+      travelerIds = JSON.parse(fields.travelerIds ?? '[]')
+    } catch {
+      await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      return reply.code(400).send({ error: 'Viajantes associados inválidos' })
+    }
+    const metadata = documentMetadataSchema.safeParse({
+      title: fields.title,
+      category: fields.category,
+      travelerIds,
+    })
+    if (!metadata.success) {
+      await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      return reply.code(400).send({ error: 'Preencha o título, a categoria e os viajantes' })
+    }
+
+    const tripTravelers = await sql<{ id: string; travelerId: string }[]>`
+      select u.id, lower(u.display_name) as traveler_id
+      from trip_members tm
+      join users u on u.id = tm.user_id
+      where tm.trip_id = ${trip.id}
+    `
+    const selectedTravelers = tripTravelers.filter((traveler) =>
+      metadata.data.travelerIds.includes(traveler.travelerId as typeof metadata.data.travelerIds[number]),
+    )
+    if (selectedTravelers.length !== metadata.data.travelerIds.length) {
+      await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      return reply.code(400).send({ error: 'Um dos viajantes não pertence a esta viagem' })
+    }
+
+    const documentId = randomUUID()
+    try {
+      await sql.begin(async (transaction) => {
+        await transaction`
+          insert into documents (
+            id, trip_id, uploaded_by, title, category, status, storage_path,
+            original_filename, mime_type, file_size
+          ) values (
+            ${documentId}, ${trip.id}, ${user.id}, ${metadata.data.title},
+            ${metadata.data.category}, ${'confirmed'}, ${uploaded.storagePath},
+            ${filename}, ${mimeType}, ${uploaded.fileSize}
+          )
+        `
+        for (const traveler of selectedTravelers) {
+          await transaction`
+            insert into document_travelers (document_id, user_id)
+            values (${documentId}, ${traveler.id})
+          `
+        }
+      })
+    } catch (error) {
+      await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      throw error
+    }
+
+    return reply.code(201).send({
+      document: {
+        id: documentId,
+        title: metadata.data.title,
+        category: metadata.data.category,
+        status: 'confirmed',
+        originalFilename: filename,
+        mimeType,
+        fileSize: uploaded.fileSize,
+        createdAt: new Date(),
+        travelerIds: metadata.data.travelerIds,
+      },
+    })
+  })
+
+  app.get('/api/documents/:id/file', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para abrir documentos' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    if (!params.success) return reply.code(400).send({ error: 'Documento inválido' })
+
+    const [document] = await sql<{
+      storagePath: string
+      originalFilename: string
+      mimeType: string
+    }[]>`
+      select d.storage_path, d.original_filename, d.mime_type
+      from documents d
+      join trip_members tm on tm.trip_id = d.trip_id and tm.user_id = ${user.id}
+      where d.id = ${params.data.id}
+      limit 1
+    `
+    if (!document) return reply.code(404).send({ error: 'Documento não encontrado' })
+
+    try {
+      const file = await openDocumentFile(environment.VOYA_DOCUMENTS_PATH, document.storagePath)
+      reply.header('Content-Type', document.mimeType)
+      reply.header('Content-Length', file.size)
+      reply.header('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(document.originalFilename)}`)
+      reply.header('Cache-Control', 'private, max-age=3600')
+      return reply.send(file.stream)
+    } catch (error) {
+      request.log.error(error, 'Ficheiro de documento ausente no armazenamento')
+      return reply.code(404).send({ error: 'O ficheiro não está disponível no armazenamento' })
+    }
   })
 
   await app.listen({ host: environment.VOYA_API_HOST, port: environment.VOYA_API_PORT })

@@ -10,13 +10,16 @@
     "db:provision": "tsx --env-file=.env server/db/provision.ts",
     "db:migrate": "tsx --env-file=.env server/db/migrate.ts",
     "db:seed": "tsx --env-file=.env server/db/seed.ts",
+    "db:seed-trip": "tsx --env-file=.env server/db/seed-trip.ts",
     "data:import": "node scripts/import-trip.mjs",
     "lint": "oxlint",
+    "test": "tsx --test server/**/*.test.ts",
     "start:api": "tsx --env-file=.env server/index.ts",
     "preview": "vite preview"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.0",
     "fastify": "^5.11.3",
     "lucide-react": "^1.30.0",
     "motion": "^13.0.0",
