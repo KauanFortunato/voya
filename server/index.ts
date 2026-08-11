@@ -44,6 +44,28 @@ const travelerProfileSchema = z.object({
   emergencyContactPhone: z.string().trim().max(40),
   notes: z.string().trim().max(1000),
 })
+const budgetSchema = z.object({
+  amount: z.number().finite().min(0).max(99_999_999.99),
+})
+const expenseSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  category: z.enum(['Hospedagem', 'Alimentação', 'Transporte', 'Ingressos', 'Compras', 'Outro']),
+  amount: z.number().finite().positive().max(99_999_999.99),
+  paidBy: z.string().uuid(),
+  travelerIds: z.array(z.string().uuid()).min(1).max(20),
+  spentAt: z.string().date(),
+})
+
+function splitAmount(amount: number, travelerIds: string[]) {
+  const uniqueIds = [...new Set(travelerIds)]
+  const totalCents = Math.round(amount * 100)
+  const baseCents = Math.floor(totalCents / uniqueIds.length)
+  const remainder = totalCents % uniqueIds.length
+  return uniqueIds.map((userId, index) => ({
+    userId,
+    amount: ((baseCents + (index < remainder ? 1 : 0)) / 100).toFixed(2),
+  }))
+}
 
 function hashSessionToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
@@ -256,6 +278,137 @@ async function start() {
                 emergency_contact_name, emergency_contact_phone, notes, updated_at
     `
     return { profile }
+  })
+
+  app.get('/api/budget', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver o orçamento' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [budget] = await sql<{ amount: string | null }[]>`
+      select budget_amount as amount from trips where id = ${trip.id}
+    `
+    const travelers = await sql<{ id: string; displayName: string }[]>`
+      select u.id, u.display_name
+      from trip_members tm
+      join users u on u.id = tm.user_id
+      where tm.trip_id = ${trip.id}
+      order by case tm.role when 'organizer' then 0 else 1 end, u.display_name
+    `
+    const expenses = await sql<{
+      id: string
+      title: string
+      category: string
+      amount: string
+      currency: string
+      spentAt: Date
+      createdAt: Date
+      paidBy: string
+      paidByName: string
+      splits: Array<{ userId: string; amount: number }>
+    }[]>`
+      select e.id, e.title, e.category, e.amount, e.currency, e.spent_at,
+             e.created_at, e.paid_by, payer.display_name as paid_by_name,
+             coalesce(
+               jsonb_agg(jsonb_build_object('userId', es.user_id, 'amount', es.amount)
+                 order by member.display_name) filter (where es.user_id is not null),
+               '[]'::jsonb
+             ) as splits
+      from expenses e
+      join users payer on payer.id = e.paid_by
+      left join expense_splits es on es.expense_id = e.id
+      left join users member on member.id = es.user_id
+      where e.trip_id = ${trip.id}
+      group by e.id, payer.display_name
+      order by e.spent_at desc, e.created_at desc
+    `
+
+    return {
+      trip: { ...trip, budgetAmount: Number(budget?.amount ?? 0), currency: 'EUR' },
+      travelers,
+      expenses: expenses.map((expense) => ({
+        ...expense,
+        amount: Number(expense.amount),
+        splits: expense.splits.map((split) => ({ ...split, amount: Number(split.amount) })),
+        canDelete: user.role === 'organizer' || expense.paidBy === user.id,
+      })),
+      canEditBudget: user.role === 'organizer',
+    }
+  })
+
+  app.put('/api/budget', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar o orçamento' })
+    if (user.role !== 'organizer') return reply.code(403).send({ error: 'Só o organizador pode alterar o orçamento' })
+    const body = budgetSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Valor de orçamento inválido' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [updated] = await sql<{ amount: string }[]>`
+      update trips set budget_amount = ${body.data.amount.toFixed(2)}
+      where id = ${trip.id}
+      returning budget_amount as amount
+    `
+    return { budgetAmount: Number(updated.amount) }
+  })
+
+  app.post('/api/expenses', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para adicionar uma despesa' })
+    const body = expenseSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Dados da despesa inválidos' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const memberIds = [...new Set([body.data.paidBy, ...body.data.travelerIds])]
+    const members = await sql<{ id: string }[]>`
+      select user_id as id from trip_members
+      where trip_id = ${trip.id} and user_id in ${sql(memberIds)}
+    `
+    if (members.length !== memberIds.length) {
+      return reply.code(400).send({ error: 'Todos os participantes devem pertencer à viagem' })
+    }
+
+    const expenseId = randomUUID()
+    const splits = splitAmount(body.data.amount, body.data.travelerIds)
+    await sql.begin(async (transaction) => {
+      await transaction`
+        insert into expenses (id, trip_id, paid_by, title, category, amount, currency, spent_at)
+        values (
+          ${expenseId}, ${trip.id}, ${body.data.paidBy}, ${body.data.title},
+          ${body.data.category}, ${body.data.amount.toFixed(2)}, 'EUR',
+          ${new Date(`${body.data.spentAt}T12:00:00Z`)}
+        )
+      `
+      for (const split of splits) {
+        await transaction`
+          insert into expense_splits (expense_id, user_id, amount)
+          values (${expenseId}, ${split.userId}, ${split.amount})
+        `
+      }
+    })
+    return reply.code(201).send({ id: expenseId })
+  })
+
+  app.delete('/api/expenses/:id', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para apagar uma despesa' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    if (!params.success) return reply.code(400).send({ error: 'Despesa inválida' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [expense] = await sql<{ paidBy: string }[]>`
+      select paid_by from expenses where id = ${params.data.id} and trip_id = ${trip.id}
+    `
+    if (!expense) return reply.code(404).send({ error: 'Despesa não encontrada' })
+    if (user.role !== 'organizer' && expense.paidBy !== user.id) {
+      return reply.code(403).send({ error: 'Só quem pagou ou o organizador pode apagar esta despesa' })
+    }
+    await sql`delete from expenses where id = ${params.data.id}`
+    return reply.code(204).send()
   })
 
   app.get('/api/documents', async (request, reply) => {
