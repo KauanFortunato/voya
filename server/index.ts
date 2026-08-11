@@ -57,8 +57,11 @@ const expenseSchema = z.object({
 })
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
+const databaseUuidSchema = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+)
 const checklistItemSchema = z.object({
-  groupId: z.string().uuid(),
+  groupId: databaseUuidSchema,
   title: z.string().trim().min(1).max(160),
 })
 
@@ -400,7 +403,7 @@ async function start() {
   app.put('/api/checklist/items/:id/completion', async (request, reply) => {
     const user = await authenticate(request)
     if (!user) return reply.code(401).send({ error: 'Inicie sessão para concluir itens' })
-    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const params = z.object({ id: databaseUuidSchema }).safeParse(request.params)
     const body = activityCompletionSchema.safeParse(request.body)
     if (!params.success || !body.success) return reply.code(400).send({ error: 'Estado de conclusão inválido' })
     const trip = await getCurrentTrip(user.id)
