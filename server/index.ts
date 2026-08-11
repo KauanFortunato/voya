@@ -55,6 +55,8 @@ const expenseSchema = z.object({
   travelerIds: z.array(z.string().uuid()).min(1).max(20),
   spentAt: z.string().date(),
 })
+const todayQuerySchema = z.object({ date: z.string().date().optional() })
+const activityCompletionSchema = z.object({ completed: z.boolean() })
 
 function splitAmount(amount: number, travelerIds: string[]) {
   const uniqueIds = [...new Set(travelerIds)]
@@ -65,6 +67,24 @@ function splitAmount(amount: number, travelerIds: string[]) {
     userId,
     amount: ((baseCents + (index < remainder ? 1 : 0)) / 100).toFixed(2),
   }))
+}
+
+function dateInTimezone(value: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value)
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
+function googleMapsUrl(activity: { title: string; city: string; address: string | null; latitude: string | null; longitude: string | null }) {
+  const query = activity.latitude && activity.longitude
+    ? `${activity.latitude},${activity.longitude}`
+    : [activity.address, activity.city, activity.title].filter(Boolean).join(', ')
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 function hashSessionToken(token: string) {
@@ -278,6 +298,190 @@ async function start() {
                 emergency_contact_name, emergency_contact_phone, notes, updated_at
     `
     return { profile }
+  })
+
+  app.get('/api/today', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver o seu dia' })
+    const query = todayQuerySchema.safeParse(request.query)
+    if (!query.success) return reply.code(400).send({ error: 'Data inválida' })
+    const currentTrip = await getCurrentTrip(user.id)
+    if (!currentTrip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [trip] = await sql<{
+      id: string
+      title: string
+      startDate: string
+      endDate: string
+      timezone: string
+      baseCurrency: string
+      budgetAmount: string | null
+    }[]>`
+      select id, title, start_date::text, end_date::text, timezone,
+             base_currency, budget_amount
+      from trips where id = ${currentTrip.id}
+    `
+    if (!trip) return reply.code(404).send({ error: 'Viagem não encontrada' })
+
+    const localDate = dateInTimezone(new Date(), trip.timezone)
+    const [day] = query.data.date
+      ? await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
+          select id, day_date::text, city, position from trip_days
+          where trip_id = ${trip.id} and day_date = ${query.data.date}
+        `
+      : await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
+          select id, day_date::text, city, position from trip_days
+          where trip_id = ${trip.id}
+          order by
+            case when day_date >= ${localDate} then 0 else 1 end,
+            case when day_date >= ${localDate} then day_date end asc,
+            case when day_date < ${localDate} then day_date end desc
+          limit 1
+        `
+    if (!day) {
+      return reply.code(404).send({ error: query.data.date ? 'Este dia não pertence à viagem' : 'O roteiro ainda não possui dias' })
+    }
+
+    const [previousDay] = await sql<{ dayDate: string }[]>`
+      select day_date::text from trip_days
+      where trip_id = ${trip.id} and position < ${day.position}
+      order by position desc limit 1
+    `
+    const [nextDay] = await sql<{ dayDate: string }[]>`
+      select day_date::text from trip_days
+      where trip_id = ${trip.id} and position > ${day.position}
+      order by position asc limit 1
+    `
+    const activities = await sql<{
+      id: string
+      title: string
+      category: string
+      startsAt: Date | null
+      endsAt: Date | null
+      time: string | null
+      endTime: string | null
+      address: string | null
+      latitude: string | null
+      longitude: string | null
+      notes: string | null
+      status: 'planned' | 'current' | 'completed' | 'cancelled'
+      position: number
+      completedAt: Date | null
+      completedByName: string | null
+      documents: Array<{
+        id: string
+        title: string
+        category: string
+        bookingCode: string | null
+        mimeType: string
+      }>
+    }[]>`
+      select a.id, a.title, a.category, a.starts_at, a.ends_at,
+             to_char(a.starts_at at time zone ${trip.timezone}, 'HH24:MI') as time,
+             to_char(a.ends_at at time zone ${trip.timezone}, 'HH24:MI') as end_time,
+             a.address, a.latitude, a.longitude, a.notes, a.status, a.position,
+             ac.completed_at, completed_by.display_name as completed_by_name,
+             coalesce(
+               (select jsonb_agg(jsonb_build_object(
+                  'id', d.id, 'title', d.title, 'category', d.category,
+                  'bookingCode', d.booking_code, 'mimeType', d.mime_type
+                ) order by d.title)
+                from document_activities da
+                join documents d on d.id = da.document_id
+                where da.activity_id = a.id),
+               '[]'::jsonb
+             ) as documents
+      from activities a
+      left join activity_completions ac on ac.activity_id = a.id
+      left join users completed_by on completed_by.id = ac.completed_by
+      where a.trip_day_id = ${day.id}
+      order by a.position
+    `
+
+    const [expenseSummary] = await sql<{
+      spentForDay: string
+      totalSpent: string
+    }[]>`
+      select
+        coalesce(sum(amount) filter (
+          where (spent_at at time zone ${trip.timezone})::date = ${day.dayDate}
+        ), 0)::text as spent_for_day,
+        coalesce(sum(amount), 0)::text as total_spent
+      from expenses where trip_id = ${trip.id}
+    `
+    const mode = day.dayDate === localDate ? 'today' : day.dayDate > localDate ? 'upcoming' : 'past'
+    const normalizedActivities = activities.map((activity) => ({
+      ...activity,
+      completed: Boolean(activity.completedAt),
+      mapsUrl: googleMapsUrl({ ...activity, city: day.city }),
+    }))
+    const incomplete = normalizedActivities.filter((activity) => !activity.completed && activity.status !== 'cancelled')
+    const now = Date.now()
+    const current = mode === 'today'
+      ? incomplete.find((activity) => activity.startsAt && activity.startsAt.getTime() <= now && (!activity.endsAt || activity.endsAt.getTime() > now))
+      : undefined
+    const upcoming = mode === 'today'
+      ? incomplete.find((activity) => activity.startsAt && activity.startsAt.getTime() > now)
+      : undefined
+    const highlighted = current ?? upcoming ?? incomplete[0] ?? null
+    const spentForDay = Number(expenseSummary?.spentForDay ?? 0)
+    const totalSpent = Number(expenseSummary?.totalSpent ?? 0)
+    const budgetAmount = Number(trip.budgetAmount ?? 0)
+
+    return {
+      user: { id: user.id, displayName: user.displayName },
+      trip: {
+        id: trip.id,
+        title: trip.title,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        timezone: trip.timezone,
+        currency: trip.baseCurrency,
+      },
+      day: {
+        date: day.dayDate,
+        city: day.city,
+        mode,
+        previousDate: previousDay?.dayDate ?? null,
+        nextDate: nextDay?.dayDate ?? null,
+      },
+      activities: normalizedActivities,
+      highlightedActivityId: highlighted?.id ?? null,
+      expenses: {
+        spentForDay,
+        totalSpent,
+        budgetAmount,
+        remaining: budgetAmount - totalSpent,
+      },
+    }
+  })
+
+  app.put('/api/activities/:id/completion', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para concluir atividades' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const body = activityCompletionSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Estado de conclusão inválido' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+    const [activity] = await sql<{ id: string }[]>`
+      select a.id from activities a
+      join trip_days td on td.id = a.trip_day_id
+      where a.id = ${params.data.id} and td.trip_id = ${trip.id}
+    `
+    if (!activity) return reply.code(404).send({ error: 'Atividade não encontrada nesta viagem' })
+
+    if (body.data.completed) {
+      const [completion] = await sql<{ completedAt: Date }[]>`
+        insert into activity_completions (activity_id, completed_by, completed_at)
+        values (${activity.id}, ${user.id}, now())
+        on conflict (activity_id) do update set completed_by = excluded.completed_by, completed_at = now()
+        returning completed_at
+      `
+      return { completed: true, completedAt: completion.completedAt, completedByName: user.displayName }
+    }
+    await sql`delete from activity_completions where activity_id = ${activity.id}`
+    return { completed: false, completedAt: null, completedByName: null }
   })
 
   app.get('/api/budget', async (request, reply) => {

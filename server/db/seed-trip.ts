@@ -31,12 +31,12 @@ export async function seedInitialTrip() {
       await transaction`
         insert into trips (
           id, household_id, created_by, title, description,
-          start_date, end_date, base_currency
+          start_date, end_date, base_currency, timezone
         ) values (
           ${tripId}, ${context.householdId}, ${context.organizerId},
           ${'Itália 2026'},
           ${'Viagem de 10 dias por Roma, Veneza, Tivoli e Cidade do Vaticano.'},
-          ${'2026-08-17'}, ${'2026-08-26'}, ${'EUR'}
+          ${'2026-08-17'}, ${'2026-08-26'}, ${'EUR'}, ${'Europe/Rome'}
         )
       `
       await transaction`
