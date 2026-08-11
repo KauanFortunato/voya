@@ -13,7 +13,9 @@
 }
 
 .today-day-picker {
+  position: relative;
   display: grid;
+  overflow: hidden;
   min-height: 58px;
   align-items: center;
   padding: 8px;
@@ -57,16 +59,26 @@
 }
 
 .today-day-picker strong { font-size: 0.78rem; }
+.today-day-picker small { color: var(--color-text-secondary); font-size: 0.58rem; }
 
 .today-refreshing {
-  padding: 7px 10px;
-  margin: -5px 0 9px;
-  border-radius: 10px;
-  color: var(--color-primary-dark);
-  background: var(--color-primary-light);
-  text-align: center;
-  font-size: 0.64rem;
-  font-weight: 700;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 42%;
+  height: 3px;
+  overflow: hidden;
+  color: transparent;
+  background: var(--color-primary-dark);
+  font-size: 0;
+  transform: translateX(-240%);
+  animation: today-day-progress 720ms var(--ease-ios) infinite;
+}
+
+.today-day-content { position: relative; }
+
+@keyframes today-day-progress {
+  to { transform: translateX(240%); }
 }
 
 .header-info p {
@@ -610,6 +622,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .today-loading > span { animation: none; }
+  .today-refreshing { width: 100%; transform: none; animation: none; }
   .timeline-item__marker,
   .timeline-card,
   .primary-action,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   Bell,
   CalendarClock,
@@ -65,12 +65,14 @@ function ActivityDetails({ activity, onClose }: { activity: TodayActivity; onClo
 }
 
 export default function TodayPage() {
+  const reduceMotion = useReducedMotion()
   const [data, setData] = useState<TodayPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedActivity, setSelectedActivity] = useState<TodayActivity | null>(null)
   const [savingIds, setSavingIds] = useState<string[]>([])
   const [actionError, setActionError] = useState('')
+  const [dayDirection, setDayDirection] = useState(1)
 
   const load = async (date?: string, signal?: AbortSignal) => {
     setLoading(true); setError(''); setActionError('')
@@ -111,6 +113,13 @@ export default function TodayPage() {
     } finally { setSavingIds((current) => current.filter((id) => id !== activity.id)) }
   }
 
+  const navigateToDay = (targetDate: string) => {
+    if (!data || loading) return
+    setDayDirection(targetDate > data.day.date ? 1 : -1)
+    setSelectedActivity(null)
+    void load(targetDate)
+  }
+
   const dayModeLabel = data?.day.mode === 'today' ? 'Hoje' : data?.day.mode === 'upcoming' ? 'Próximo dia da viagem' : 'Dia anterior'
 
   return (
@@ -119,9 +128,18 @@ export default function TodayPage() {
         {loading && !data && <TodaySkeleton />}
         {error && !data && <section className="today-error" role="alert"><CircleAlert size={24} /><strong>Não foi possível abrir o seu dia</strong><span>{error}</span><button type="button" onClick={() => void load()}><RefreshCw size={15} />Tentar novamente</button></section>}
         {data && <>
-          <header className="today-header"><div className="header-info"><img className="today-brand-logo" src={voyaLogo} alt="Voya" /><p>{formatDay(data.day.date)}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
-          <section className="today-day-picker" aria-label="Navegar entre os dias da viagem"><button type="button" aria-label="Dia anterior" disabled={!data.day.previousDate || loading} onClick={() => void load(data.day.previousDate ?? undefined)}><ChevronLeft size={17} /></button><div><span>{dayModeLabel}</span><strong>{data.day.city}</strong></div><button type="button" aria-label="Próximo dia" disabled={!data.day.nextDate || loading} onClick={() => void load(data.day.nextDate ?? undefined)}><ChevronRight size={17} /></button></section>
-          {loading && <div className="today-refreshing" role="status">A carregar outro dia…</div>}
+          <header className="today-header"><div className="header-info"><img className="today-brand-logo" src={voyaLogo} alt="Voya" /><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
+          <AnimatePresence mode="popLayout" initial={false} custom={dayDirection}>
+            <motion.div
+              className="today-day-content"
+              key={data.day.date}
+              aria-live="polite"
+              initial={reduceMotion ? false : { opacity: 0.72, x: dayDirection * 12, filter: 'blur(2px)' }}
+              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+              exit={reduceMotion ? undefined : { opacity: 0, x: dayDirection * -5, filter: 'blur(1px)' }}
+              transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
+            >
+          <section className={`today-day-picker${loading ? ' is-loading' : ''}`} aria-label="Navegar entre os dias da viagem" aria-busy={loading}><button type="button" aria-label="Dia anterior" disabled={!data.day.previousDate || loading} onClick={() => data.day.previousDate && navigateToDay(data.day.previousDate)}><ChevronLeft size={17} /></button><div><span>{dayModeLabel}</span><strong>{data.day.city}</strong><small>{formatDay(data.day.date)}</small></div><button type="button" aria-label="Próximo dia" disabled={!data.day.nextDate || loading} onClick={() => data.day.nextDate && navigateToDay(data.day.nextDate)}><ChevronRight size={17} /></button>{loading && <span className="today-refreshing" role="status">A carregar outro dia…</span>}</section>
           {error && <p className="today-action-error" role="alert">{error}</p>}
           {highlightedActivity ? <section className="next-activity" aria-labelledby="next-activity-title">
             <div className="next-activity__topline"><span>{data.day.mode === 'today' ? 'Próxima atividade' : 'Em destaque'}</span><span className="next-activity__documents"><FileText size={15} />{highlightedActivity.documents.length}</span></div>
@@ -141,6 +159,8 @@ export default function TodayPage() {
               return <article className={`timeline-item${activity.completed ? ' is-done' : ''}${isHighlighted ? ' is-current' : ''}${activity.status === 'cancelled' ? ' is-cancelled' : ''}`} key={activity.id}><span className="timeline-item__marker" aria-hidden="true">{activity.completed && <Check size={11} strokeWidth={3} />}</span><div className="timeline-card"><time>{activity.time ?? 'A definir'}{activity.endTime && <small>–{activity.endTime}</small>}</time><h3>{activity.title}</h3><p>{categoryLabels[activity.category] ?? activity.category}{activity.address ? ` · ${activity.address}` : ''}</p>{activity.documents.length > 0 && <span className="timeline-documents"><FileText size={13} />{activity.documents.length} {activity.documents.length === 1 ? 'documento' : 'documentos'}</span>}<div className="timeline-card__actions"><button type="button" onClick={() => setSelectedActivity(activity)}>Detalhes</button>{activity.status !== 'cancelled' && <button type="button" disabled={isSaving} aria-busy={isSaving} onClick={() => void toggleActivity(activity)}>{isSaving ? 'A guardar…' : activity.completed ? 'Desfazer' : 'Concluir'}</button>}</div></div></article>
             })}</div> : <div className="today-empty"><CalendarClock size={24} /><strong>Dia livre</strong><span>Nenhuma atividade foi adicionada a este dia.</span></div>}
           </section>
+            </motion.div>
+          </AnimatePresence>
         </>}
       </main>
       <ModalPortal open={Boolean(selectedActivity)} onClose={() => setSelectedActivity(null)}>{selectedActivity && <ActivityDetails activity={selectedActivity} onClose={() => setSelectedActivity(null)} />}</ModalPortal>
