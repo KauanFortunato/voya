@@ -19,7 +19,7 @@ const menuItems = [
   { to: '/more/overview', title: 'Visão geral', subtitle: 'Progresso e próximos marcos', icon: Route },
   { to: '/more/checklist', title: 'Checklist', subtitle: '6 de 16 itens concluídos', icon: CheckSquare },
   { to: '/more/documents', title: 'Documentos', subtitle: 'Reservas, bilhetes e ficheiros', icon: FileText },
-  { to: '/more/budget', title: 'Orçamento', subtitle: '€672 disponíveis', icon: WalletCards },
+  { to: '/more/budget', title: 'Orçamento', subtitle: 'Despesas e divisão da família', icon: WalletCards },
   { to: '/more/travelers', title: 'Viajantes', subtitle: 'Kauan, Kairon, Helieny e Anicio', icon: Users },
   { to: '/more/settings', title: 'Configurações', subtitle: 'Notificações, mapas e idioma', icon: Settings },
 ]
