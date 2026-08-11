@@ -31,7 +31,9 @@ const documentMetadataSchema = z.object({
   title: z.string().trim().min(1).max(160),
   category: z.enum(['Voo', 'Hospedagem', 'Transporte', 'Ingresso', 'Seguro', 'Outro']).default('Outro'),
   travelerIds: z.array(z.enum(['kauan', 'kairon', 'helieny', 'anicio'])).min(1),
+  activityIds: z.array(z.string().uuid()).max(50).default([]),
 })
+const associationSchema = z.object({ ids: z.array(z.string().uuid()).max(50) })
 
 function hashSessionToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
@@ -168,25 +170,54 @@ async function start() {
       fileSize: string
       createdAt: Date
       travelerIds: string[]
+      activityIds: string[]
     }[]>`
       select
         d.id, d.title, d.category, d.booking_code, d.status, d.starts_at,
         d.original_filename, d.mime_type, d.file_size, d.created_at,
         coalesce(
-          array_agg(lower(traveler.display_name) order by traveler.display_name)
-            filter (where traveler.id is not null),
+          (select array_agg(lower(u.display_name) order by u.display_name)
+           from document_travelers dt join users u on u.id = dt.user_id
+           where dt.document_id = d.id),
           array[]::text[]
-        ) as traveler_ids
+        ) as traveler_ids,
+        coalesce(
+          (select array_agg(da.activity_id order by da.activity_id)
+           from document_activities da where da.document_id = d.id),
+          array[]::uuid[]
+        ) as activity_ids
       from documents d
       join trip_members viewer on viewer.trip_id = d.trip_id and viewer.user_id = ${user.id}
-      left join document_travelers dt on dt.document_id = d.id
-      left join users traveler on traveler.id = dt.user_id
       where d.trip_id = ${trip.id}
-      group by d.id
       order by d.created_at desc
     `
 
-    return { trip, documents }
+    const activities = await sql<{
+      id: string
+      sourceKey: string | null
+      title: string
+      category: string
+      dayDate: string
+      city: string
+      time: string | null
+      endTime: string | null
+      address: string | null
+      notes: string | null
+      status: 'planned' | 'current' | 'completed' | 'cancelled'
+      position: number
+      dayPosition: number
+    }[]>`
+      select a.id, a.source_key, a.title, a.category, td.day_date::text,
+             td.city, to_char(a.starts_at at time zone 'Europe/Rome', 'HH24:MI') as time,
+             to_char(a.ends_at at time zone 'Europe/Rome', 'HH24:MI') as end_time,
+             a.address, a.notes, a.status, a.position, td.position as day_position
+      from activities a
+      join trip_days td on td.id = a.trip_day_id
+      where td.trip_id = ${trip.id}
+      order by td.position, a.position
+    `
+
+    return { trip, documents, activities }
   })
 
   app.post('/api/documents', async (request, reply) => {
@@ -245,16 +276,19 @@ async function start() {
     if (!uploaded) return reply.code(400).send({ error: 'Selecione um ficheiro para importar' })
 
     let travelerIds: unknown
+    let activityIds: unknown
     try {
       travelerIds = JSON.parse(fields.travelerIds ?? '[]')
+      activityIds = JSON.parse(fields.activityIds ?? '[]')
     } catch {
       await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
-      return reply.code(400).send({ error: 'Viajantes associados inválidos' })
+      return reply.code(400).send({ error: 'Associações do documento inválidas' })
     }
     const metadata = documentMetadataSchema.safeParse({
       title: fields.title,
       category: fields.category,
       travelerIds,
+      activityIds,
     })
     if (!metadata.success) {
       await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
@@ -273,6 +307,18 @@ async function start() {
     if (selectedTravelers.length !== metadata.data.travelerIds.length) {
       await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
       return reply.code(400).send({ error: 'Um dos viajantes não pertence a esta viagem' })
+    }
+
+    const selectedActivities = metadata.data.activityIds.length
+      ? await sql<{ id: string }[]>`
+          select a.id from activities a
+          join trip_days td on td.id = a.trip_day_id
+          where td.trip_id = ${trip.id} and a.id in ${sql(metadata.data.activityIds)}
+        `
+      : []
+    if (selectedActivities.length !== new Set(metadata.data.activityIds).size) {
+      await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
+      return reply.code(400).send({ error: 'Uma das atividades não pertence a esta viagem' })
     }
 
     const documentId = randomUUID()
@@ -294,6 +340,12 @@ async function start() {
             values (${documentId}, ${traveler.id})
           `
         }
+        for (const activity of selectedActivities) {
+          await transaction`
+            insert into document_activities (document_id, activity_id)
+            values (${documentId}, ${activity.id})
+          `
+        }
       })
     } catch (error) {
       await removeDocumentFile(environment.VOYA_DOCUMENTS_PATH, uploaded.storagePath)
@@ -311,8 +363,75 @@ async function start() {
         fileSize: uploaded.fileSize,
         createdAt: new Date(),
         travelerIds: metadata.data.travelerIds,
+        activityIds: metadata.data.activityIds,
       },
     })
+  })
+
+  app.put('/api/documents/:id/activities', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar documentos' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const body = associationSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Associação inválida' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [document] = await sql<{ id: string }[]>`
+      select id from documents where id = ${params.data.id} and trip_id = ${trip.id}
+    `
+    if (!document) return reply.code(404).send({ error: 'Documento não encontrado' })
+    const uniqueIds = [...new Set(body.data.ids)]
+    const activities = uniqueIds.length
+      ? await sql<{ id: string }[]>`
+          select a.id from activities a join trip_days td on td.id = a.trip_day_id
+          where td.trip_id = ${trip.id} and a.id in ${sql(uniqueIds)}
+        `
+      : []
+    if (activities.length !== uniqueIds.length) {
+      return reply.code(400).send({ error: 'Uma das atividades não pertence a esta viagem' })
+    }
+
+    await sql.begin(async (transaction) => {
+      await transaction`delete from document_activities where document_id = ${document.id}`
+      for (const activity of activities) {
+        await transaction`insert into document_activities (document_id, activity_id) values (${document.id}, ${activity.id})`
+      }
+    })
+    return { activityIds: uniqueIds }
+  })
+
+  app.put('/api/activities/:id/documents', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar o roteiro' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const body = associationSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Associação inválida' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [activity] = await sql<{ id: string }[]>`
+      select a.id from activities a join trip_days td on td.id = a.trip_day_id
+      where a.id = ${params.data.id} and td.trip_id = ${trip.id}
+    `
+    if (!activity) return reply.code(404).send({ error: 'Atividade não encontrada' })
+    const uniqueIds = [...new Set(body.data.ids)]
+    const documents = uniqueIds.length
+      ? await sql<{ id: string }[]>`
+          select id from documents where trip_id = ${trip.id} and id in ${sql(uniqueIds)}
+        `
+      : []
+    if (documents.length !== uniqueIds.length) {
+      return reply.code(400).send({ error: 'Um dos documentos não pertence a esta viagem' })
+    }
+
+    await sql.begin(async (transaction) => {
+      await transaction`delete from document_activities where activity_id = ${activity.id}`
+      for (const document of documents) {
+        await transaction`insert into document_activities (document_id, activity_id) values (${document.id}, ${activity.id})`
+      }
+    })
+    return { documentIds: uniqueIds }
   })
 
   app.get('/api/documents/:id/file', async (request, reply) => {
