@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   BedDouble,
@@ -15,6 +15,8 @@ import {
 
 import SubpageHeader from '../components/SubpageHeader'
 import ModalPortal from '../components/ModalPortal'
+import { useAuth } from '../auth/auth'
+import { listDocuments, uploadDocument, type ApiDocument } from '../api/documents'
 import {
   documentCategories,
   documentSeed,
@@ -35,13 +37,75 @@ const categoryIcons: Record<DocumentCategory, LucideIcon> = {
   Outro: FileText,
 }
 
+const travelerIds = new Set(Object.keys(travelers))
+
+function mapApiDocument(document: ApiDocument): TripDocument {
+  const date = new Date(document.startsAt ?? document.createdAt)
+  const dateLabel = Number.isNaN(date.getTime())
+    ? 'Importado recentemente'
+    : `Importado em ${new Intl.DateTimeFormat('pt-PT', {
+      day: 'numeric',
+      month: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date)}`
+  const status: TripDocument['status'] = document.status === 'confirmed'
+    ? 'Confirmado'
+    : document.status === 'attention' || document.status === 'expired'
+      ? 'Atenção'
+      : 'Rascunho'
+
+  return {
+    id: document.id,
+    title: document.title,
+    category: document.category as DocumentCategory,
+    dateLabel,
+    bookingCode: document.bookingCode ?? undefined,
+    status,
+    travelerIds: document.travelerIds.filter((id) => travelerIds.has(id)) as TripDocument['travelerIds'],
+    fileName: document.originalFilename,
+    fileUrl: `/api/documents/${document.id}/file`,
+    note: `Guardado na NAS · ${Math.max(1, Math.round(Number(document.fileSize) / 1024))} KB`,
+  }
+}
+
 export default function DocumentsPage() {
+  const { user } = useAuth()
   const reduceMotion = useReducedMotion()
   const fileInput = useRef<HTMLInputElement>(null)
-  const [documents, setDocuments] = useState<TripDocument[]>(documentSeed)
+  const [remoteDocuments, setRemoteDocuments] = useState<TripDocument[]>([])
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
   const [selected, setSelected] = useState<TripDocument | null>(null)
   const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [uploadState, setUploadState] = useState<{
+    status: 'idle' | 'uploading' | 'success' | 'error'
+    progress: number
+    message: string
+  }>({ status: 'idle', progress: 0, message: '' })
+
+  const documents = useMemo(() => [...remoteDocuments, ...documentSeed], [remoteDocuments])
+
+  const loadRemoteDocuments = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const payload = await listDocuments(signal)
+      setRemoteDocuments(payload.documents.map(mapApiDocument))
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os documentos da NAS')
+    } finally {
+      if (!signal?.aborted) setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void loadRemoteDocuments(controller.signal)
+    return () => controller.abort()
+  }, [loadRemoteDocuments])
 
   const visibleDocuments = useMemo(
     () => documents.filter((document) => category === 'Todos' || document.category === category),
@@ -50,22 +114,37 @@ export default function DocumentsPage() {
   const confirmed = documents.filter((document) => document.status === 'Confirmado').length
   const progress = documents.length ? Math.round((confirmed / documents.length) * 100) : 0
 
-  const importFile = (file?: File) => {
+  const importFile = async (file?: File) => {
     if (!file) return
-    const imported: TripDocument = {
-      id: `local-${crypto.randomUUID()}`,
-      title: file.name.replace(/\.[^.]+$/, '').replaceAll('-', ' '),
-      category: 'Outro',
-      dateLabel: 'Importado agora · apenas nesta sessão',
-      status: 'Rascunho',
-      travelerIds: ['kauan'],
-      fileName: file.name,
-      localFile: file,
-      note: 'Ficheiro importado localmente e ainda não sincronizado com a NAS.',
+    const userId = user?.displayName.toLocaleLowerCase('pt-PT')
+    if (!userId || !travelerIds.has(userId)) {
+      setUploadState({ status: 'error', progress: 0, message: 'Não foi possível associar o viajante atual.' })
+      return
     }
-    setDocuments((current) => [imported, ...current])
-    setCategory('Todos')
-    setSelected(imported)
+
+    setUploadState({ status: 'uploading', progress: 0, message: `A enviar ${file.name}` })
+    try {
+      const uploaded = await uploadDocument(
+        file,
+        {
+          title: file.name.replace(/\.[^.]+$/, '').replaceAll(/[-_]+/g, ' ').trim(),
+          category: 'Outro',
+          travelerIds: [userId],
+        },
+        (progress) => setUploadState((current) => ({ ...current, progress })),
+      )
+      const document = mapApiDocument(uploaded)
+      setRemoteDocuments((current) => [document, ...current])
+      setCategory('Todos')
+      setSelected(document)
+      setUploadState({ status: 'success', progress: 100, message: 'Documento guardado na NAS.' })
+    } catch (error) {
+      setUploadState({
+        status: 'error',
+        progress: 0,
+        message: error instanceof Error ? error.message : 'Não foi possível importar o documento',
+      })
+    }
     if (fileInput.current) fileInput.current.value = ''
   }
 
@@ -94,15 +173,37 @@ export default function DocumentsPage() {
         title="Documentos"
         actionIcon={Upload}
         actionLabel="Importar documento"
-        onAction={() => fileInput.current?.click()}
+        onAction={() => uploadState.status !== 'uploading' && fileInput.current?.click()}
       />
       <input
         ref={fileInput}
         className="documents-file-input"
         type="file"
         accept="application/pdf,image/*"
-        onChange={(event) => importFile(event.target.files?.[0])}
+        disabled={uploadState.status === 'uploading'}
+        onChange={(event) => void importFile(event.target.files?.[0])}
       />
+
+      {uploadState.status !== 'idle' && (
+        <section
+          className={`documents-upload-state is-${uploadState.status}`}
+          aria-live="polite"
+          aria-busy={uploadState.status === 'uploading'}
+        >
+          <div>
+            <strong>{uploadState.status === 'uploading' ? `${uploadState.progress}%` : uploadState.status === 'success' ? 'Concluído' : 'Falhou'}</strong>
+            <span>{uploadState.message}</span>
+          </div>
+          {uploadState.status === 'uploading' && (
+            <span className="documents-upload-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadState.progress}>
+              <i style={{ transform: `scaleX(${uploadState.progress / 100})` }} />
+            </span>
+          )}
+          {uploadState.status !== 'uploading' && (
+            <button type="button" onClick={() => setUploadState({ status: 'idle', progress: 0, message: '' })}>Fechar</button>
+          )}
+        </section>
+      )}
 
       <section className="documents-summary" aria-label={`${confirmed} de ${documents.length} documentos confirmados`}>
         <div className="documents-summary__heading">
@@ -139,6 +240,17 @@ export default function DocumentsPage() {
       </div>
 
       <section className="documents-list" aria-live="polite">
+        {loading && !remoteDocuments.length && (
+          <div className="documents-loading" role="status" aria-label="A carregar documentos da NAS">
+            {[0, 1].map((item) => <span key={item}><i /><b /><em /></span>)}
+          </div>
+        )}
+        {loadError && (
+          <div className="documents-load-error" role="alert">
+            <span>{loadError}</span>
+            <button type="button" onClick={() => void loadRemoteDocuments()}>Tentar novamente</button>
+          </div>
+        )}
         {visibleDocuments.length ? visibleDocuments.map((document) => {
           const Icon = categoryIcons[document.category]
           return (

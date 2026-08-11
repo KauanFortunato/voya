@@ -17,6 +17,8 @@ import {
 } from 'react-router-dom'
 
 import ScreenSkeleton from './components/ScreenSkeleton'
+import { AuthProvider } from './auth/AuthContext'
+import { useAuth } from './auth/auth'
 import './App.css'
 
 const TodayPage = lazy(() => import('./pages/TodayPage'))
@@ -28,6 +30,7 @@ const OverviewPage = lazy(() => import('./pages/OverviewPage'))
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
 const SectionPage = lazy(() => import('./pages/SectionPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
 
 const navigation = [
   { to: '/today', label: 'Hoje', icon: House },
@@ -138,12 +141,23 @@ function AppShell() {
   )
 }
 
-function App() {
+function AuthenticatedApp() {
+  const { status } = useAuth()
+
+  if (status === 'loading') return <div className="app-shell"><ScreenSkeleton /></div>
+  if (status === 'anonymous') {
+    return <Suspense fallback={<div className="app-shell"><ScreenSkeleton /></div>}><LoginPage /></Suspense>
+  }
+
   return (
     <HashRouter>
       <AppShell />
     </HashRouter>
   )
+}
+
+function App() {
+  return <AuthProvider><AuthenticatedApp /></AuthProvider>
 }
 
 export default App

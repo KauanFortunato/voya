@@ -3,6 +3,7 @@ import {
   CheckSquare,
   ChevronRight,
   FileText,
+  LogOut,
   Route,
   Settings,
   Users,
@@ -11,6 +12,7 @@ import {
 import { Link } from 'react-router-dom'
 
 import IconButton from '../components/IconButton'
+import { useAuth } from '../auth/auth'
 import './MorePage.css'
 
 const menuItems = [
@@ -23,6 +25,9 @@ const menuItems = [
 ]
 
 export default function MorePage() {
+  const { user, logout } = useAuth()
+  const initials = user?.displayName.slice(0, 2).toLocaleUpperCase('pt-PT') ?? 'VF'
+
   return (
     <main className="more-page" id="main-content">
       <header className="more-header">
@@ -34,10 +39,10 @@ export default function MorePage() {
       </header>
 
       <section className="more-profile" aria-label="Perfil atual">
-        <span className="more-avatar" aria-hidden="true">KF</span>
+        <span className="more-avatar" aria-hidden="true">{initials}</span>
         <div>
-          <h2>Kauan</h2>
-          <p>Organizador · Roma e Veneza</p>
+          <h2>{user?.displayName}</h2>
+          <p>{user?.role === 'organizer' ? 'Organizador' : 'Viajante'} · Itália 2026</p>
         </div>
         <span className="more-ready">Pronto</span>
       </section>
@@ -54,6 +59,11 @@ export default function MorePage() {
           </Link>
         ))}
       </nav>
+
+      <button className="more-logout" type="button" onClick={() => void logout()}>
+        <LogOut size={18} aria-hidden="true" />
+        Sair desta conta
+      </button>
     </main>
   )
 }

@@ -137,8 +137,30 @@
   color: #9aa7b4;
 }
 
+.more-logout {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 15px;
+  color: var(--color-text-secondary);
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+  gap: 7px;
+  transition: color 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.more-logout:active { transform: scale(0.99); }
+
 @media (prefers-reduced-motion: reduce) {
-  .more-menu__row {
+  .more-menu__row,
+  .more-logout {
     transition-duration: 0.01ms;
   }
 }
