@@ -35,6 +35,15 @@ const documentMetadataSchema = z.object({
   activityIds: z.array(z.string().uuid()).max(50).default([]),
 })
 const associationSchema = z.object({ ids: z.array(z.string().uuid()).max(50) })
+const travelerProfileSchema = z.object({
+  travelPace: z.enum(['relaxed', 'balanced', 'intense']),
+  interests: z.array(z.enum(['art', 'history', 'food', 'nature', 'shopping', 'photography'])).max(6),
+  dietaryNotes: z.string().trim().max(500),
+  accessibilityNotes: z.string().trim().max(500),
+  emergencyContactName: z.string().trim().max(120),
+  emergencyContactPhone: z.string().trim().max(40),
+  notes: z.string().trim().max(1000),
+})
 
 function hashSessionToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
@@ -151,6 +160,102 @@ async function start() {
     if (token) await sql`delete from sessions where token_hash = ${hashSessionToken(token)}`
     reply.clearCookie(sessionCookie, { path: '/' })
     return reply.code(204).send()
+  })
+
+  app.get('/api/travelers', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver os viajantes' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const travelers = await sql<{
+      id: string
+      displayName: string
+      role: 'organizer' | 'traveler'
+      travelPace: 'relaxed' | 'balanced' | 'intense'
+      interests: string[]
+      dietaryNotes: string
+      accessibilityNotes: string
+      emergencyContactName: string
+      emergencyContactPhone: string
+      notes: string
+      updatedAt: Date | null
+    }[]>`
+      select u.id, u.display_name, tm.role,
+             coalesce(tp.travel_pace, 'balanced') as travel_pace,
+             coalesce(tp.interests, array[]::text[]) as interests,
+             coalesce(tp.dietary_notes, '') as dietary_notes,
+             coalesce(tp.accessibility_notes, '') as accessibility_notes,
+             coalesce(tp.emergency_contact_name, '') as emergency_contact_name,
+             coalesce(tp.emergency_contact_phone, '') as emergency_contact_phone,
+             coalesce(tp.notes, '') as notes,
+             tp.updated_at
+      from trip_members tm
+      join users u on u.id = tm.user_id
+      left join traveler_profiles tp on tp.user_id = u.id
+      where tm.trip_id = ${trip.id}
+      order by case tm.role when 'organizer' then 0 else 1 end, u.display_name
+    `
+
+    return {
+      trip,
+      travelers: travelers.map((traveler) => ({
+        ...traveler,
+        canEdit: user.role === 'organizer' || traveler.id === user.id,
+      })),
+    }
+  })
+
+  app.put('/api/travelers/:id/profile', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar preferências' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const body = travelerProfileSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Preferências inválidas' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [traveler] = await sql<{ id: string }[]>`
+      select user_id as id from trip_members
+      where trip_id = ${trip.id} and user_id = ${params.data.id}
+    `
+    if (!traveler) return reply.code(404).send({ error: 'Viajante não encontrado nesta viagem' })
+    if (user.role !== 'organizer' && traveler.id !== user.id) {
+      return reply.code(403).send({ error: 'Só pode alterar as suas próprias preferências' })
+    }
+
+    const [profile] = await sql<{
+      travelPace: 'relaxed' | 'balanced' | 'intense'
+      interests: string[]
+      dietaryNotes: string
+      accessibilityNotes: string
+      emergencyContactName: string
+      emergencyContactPhone: string
+      notes: string
+      updatedAt: Date
+    }[]>`
+      insert into traveler_profiles (
+        user_id, travel_pace, interests, dietary_notes, accessibility_notes,
+        emergency_contact_name, emergency_contact_phone, notes, updated_at
+      ) values (
+        ${traveler.id}, ${body.data.travelPace}, ${body.data.interests},
+        ${body.data.dietaryNotes}, ${body.data.accessibilityNotes},
+        ${body.data.emergencyContactName}, ${body.data.emergencyContactPhone},
+        ${body.data.notes}, now()
+      )
+      on conflict (user_id) do update set
+        travel_pace = excluded.travel_pace,
+        interests = excluded.interests,
+        dietary_notes = excluded.dietary_notes,
+        accessibility_notes = excluded.accessibility_notes,
+        emergency_contact_name = excluded.emergency_contact_name,
+        emergency_contact_phone = excluded.emergency_contact_phone,
+        notes = excluded.notes,
+        updated_at = now()
+      returning travel_pace, interests, dietary_notes, accessibility_notes,
+                emergency_contact_name, emergency_contact_phone, notes, updated_at
+    `
+    return { profile }
   })
 
   app.get('/api/documents', async (request, reply) => {
