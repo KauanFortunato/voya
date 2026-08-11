@@ -68,6 +68,24 @@ export async function removeDocumentFile(root: string, storagePath: string) {
   await rm(getSafeStoragePath(root, storagePath), { force: true })
 }
 
+export async function stageDocumentRemoval(root: string, storagePath: string) {
+  const originalPath = getSafeStoragePath(root, storagePath)
+  const stagedPath = `${originalPath}.${randomUUID()}.deleting`
+  try {
+    await rename(originalPath, stagedPath)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { commit: async () => undefined, rollback: async () => undefined }
+    }
+    throw error
+  }
+
+  return {
+    commit: async () => rm(stagedPath, { force: true }),
+    rollback: async () => rename(stagedPath, originalPath),
+  }
+}
+
 export async function openDocumentFile(root: string, storagePath: string) {
   const absolutePath = getSafeStoragePath(root, storagePath)
   const details = await stat(absolutePath)

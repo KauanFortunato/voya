@@ -541,6 +541,43 @@
 
 .document-sheet__primary:disabled { cursor: default; opacity: 0.55; }
 
+.document-sheet__delete {
+  display: inline-flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 9px;
+  border: 0;
+  border-radius: 14px;
+  color: #9b3c36;
+  background: transparent;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.document-delete-sheet { padding-bottom: calc(18px + env(safe-area-inset-bottom)); text-align: center; }
+.document-delete-sheet__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 11px;
+  place-items: center;
+  border-radius: 14px;
+  color: #9b3c36;
+  background: #fff0ee;
+}
+.document-delete-sheet h2 { max-width: none; }
+.document-delete-sheet > p { max-width: 330px; margin: 6px auto 0; line-height: 1.5; }
+.document-delete-sheet .document-delete-sheet__error { padding: 9px 11px; border-radius: 11px; color: #9b3c36; background: #fff0ee; }
+.document-delete-sheet__actions { display: grid; margin-top: 18px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.document-delete-sheet__actions button { min-height: 46px; border: 0; border-radius: 13px; font-size: 0.72rem; font-weight: 800; cursor: pointer; }
+.document-delete-sheet__actions button:first-child { color: var(--color-text); background: white; }
+.document-delete-sheet__actions button:last-child { color: white; background: #a73f39; }
+.document-delete-sheet__actions button:disabled { cursor: default; opacity: 0.6; }
+
 .document-sheet .document-sheet__notice { padding: 11px 12px; margin-top: 17px; border-radius: 13px; color: var(--color-text-secondary); background: white; line-height: 1.5; }
 
 .pdf-viewer-lazy {
@@ -563,6 +600,8 @@
   .document-upload-travelers button,
   .document-upload-activities button,
   .document-associations > div button,
+  .document-sheet__delete,
+  .document-delete-sheet__actions button,
   .document-card { transition-duration: 0.01ms; }
 
   .documents-loading i,

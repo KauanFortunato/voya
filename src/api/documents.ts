@@ -101,3 +101,8 @@ export async function updateActivityDocuments(activityId: string, ids: string[])
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<{ documentIds: string[] }>
 }
+
+export async function deleteDocument(documentId: string) {
+  const response = await fetch(`/api/documents/${documentId}`, { method: 'DELETE' })
+  if (!response.ok) throw new Error(await readError(response))
+}

@@ -9,6 +9,7 @@ import {
   Plane,
   ShieldCheck,
   Ticket,
+  Trash2,
   Upload,
   X,
   type LucideIcon,
@@ -20,6 +21,7 @@ import ModalPortal from '../components/ModalPortal'
 import { useAuth } from '../auth/auth'
 import {
   listDocuments,
+  deleteDocument as removeRemoteDocument,
   updateDocumentActivities,
   uploadDocument,
   type ApiDocument,
@@ -27,7 +29,6 @@ import {
 } from '../api/documents'
 import {
   documentCategories,
-  documentSeed,
   travelers,
   type DocumentCategory,
   type TravelerId,
@@ -109,6 +110,8 @@ export default function DocumentsPage() {
   const [activities, setActivities] = useState<ApiItineraryActivity[]>([])
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
   const [selected, setSelected] = useState<TripDocument | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<TripDocument | null>(null)
+  const [deleteState, setDeleteState] = useState<'idle' | 'deleting' | 'error'>('idle')
   const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
   const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null)
   const [associationDraft, setAssociationDraft] = useState<string[]>([])
@@ -121,7 +124,7 @@ export default function DocumentsPage() {
     message: string
   }>({ status: 'idle', progress: 0, message: '' })
 
-  const documents = useMemo(() => [...remoteDocuments, ...documentSeed], [remoteDocuments])
+  const documents = remoteDocuments
 
   const loadRemoteDocuments = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
@@ -230,6 +233,33 @@ export default function DocumentsPage() {
       setAssociationState('idle')
     } catch {
       setAssociationState('error')
+    }
+  }
+
+  const requestDocumentDeletion = (document: TripDocument) => {
+    setSelected(null)
+    setDeleteState('idle')
+    setDeleteConfirm(document)
+  }
+
+  const cancelDocumentDeletion = () => {
+    if (deleteState === 'deleting' || !deleteConfirm) return
+    const document = deleteConfirm
+    setDeleteConfirm(null)
+    openDocument(document)
+  }
+
+  const confirmDocumentDeletion = async () => {
+    if (!deleteConfirm || deleteState === 'deleting') return
+    setDeleteState('deleting')
+    try {
+      await removeRemoteDocument(deleteConfirm.id)
+      setRemoteDocuments((current) => current.filter((document) => document.id !== deleteConfirm.id))
+      setDeleteConfirm(null)
+      setDeleteState('idle')
+      setUploadState({ status: 'success', progress: 100, message: 'Documento apagado da NAS.' })
+    } catch {
+      setDeleteState('error')
     }
   }
 
@@ -659,6 +689,55 @@ export default function DocumentsPage() {
               ) : (
                 <p className="document-sheet__notice">Os dados são demonstrativos. O ficheiro real será ligado à NAS na próxima etapa.</p>
               )}
+
+              {remoteDocuments.some((document) => document.id === selected.id) && (
+                <button className="document-sheet__delete" type="button" onClick={() => requestDocumentDeletion(selected)}>
+                  <Trash2 size={16} aria-hidden="true" />Apagar documento
+                </button>
+              )}
+            </motion.section>
+          </div>
+        )}
+      </ModalPortal>
+
+      <ModalPortal open={Boolean(deleteConfirm)} onClose={cancelDocumentDeletion}>
+        {deleteConfirm && (
+          <div className="document-sheet-layer" role="presentation">
+            <motion.button
+              className="document-sheet-backdrop"
+              type="button"
+              aria-label="Cancelar exclusão"
+              disabled={deleteState === 'deleting'}
+              onClick={cancelDocumentDeletion}
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.16 }}
+            />
+            <motion.section
+              className="document-sheet document-delete-sheet"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="document-delete-title"
+              aria-describedby="document-delete-description"
+              initial={reduceMotion ? false : { opacity: 0, y: 24, filter: 'blur(2px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: 10, filter: 'blur(1px)' }}
+              transition={{ type: 'spring', duration: 0.28, bounce: 0 }}
+            >
+              <span className="document-sheet__handle" aria-hidden="true" />
+              <span className="document-delete-sheet__icon"><Trash2 size={20} aria-hidden="true" /></span>
+              <h2 id="document-delete-title">Apagar este documento?</h2>
+              <p id="document-delete-description">
+                “{deleteConfirm.title}” será removido do app e do armazenamento da NAS. Esta ação não pode ser desfeita.
+              </p>
+              {deleteState === 'error' && <p className="document-delete-sheet__error" role="alert">Não foi possível apagar. O documento continua guardado.</p>}
+              <div className="document-delete-sheet__actions">
+                <button type="button" disabled={deleteState === 'deleting'} onClick={cancelDocumentDeletion}>Cancelar</button>
+                <button type="button" disabled={deleteState === 'deleting'} onClick={() => void confirmDocumentDeletion()}>
+                  {deleteState === 'deleting' ? 'A apagar…' : 'Sim, apagar'}
+                </button>
+              </div>
             </motion.section>
           </div>
         )}

@@ -17,6 +17,7 @@ import {
   normalizeOriginalFilename,
   openDocumentFile,
   removeDocumentFile,
+  stageDocumentRemoval,
   storeDocumentFile,
 } from './documents/storage.ts'
 import { verifyPassword } from './security/password.ts'
@@ -399,6 +400,35 @@ async function start() {
       }
     })
     return { activityIds: uniqueIds }
+  })
+
+  app.delete('/api/documents/:id', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para apagar documentos' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    if (!params.success) return reply.code(400).send({ error: 'Documento inválido' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [document] = await sql<{ id: string; uploadedBy: string; storagePath: string }[]>`
+      select d.id, d.uploaded_by, d.storage_path
+      from documents d
+      where d.id = ${params.data.id} and d.trip_id = ${trip.id}
+    `
+    if (!document) return reply.code(404).send({ error: 'Documento não encontrado' })
+    if (user.role !== 'organizer' && document.uploadedBy !== user.id) {
+      return reply.code(403).send({ error: 'Apenas o organizador ou quem enviou pode apagar este documento' })
+    }
+
+    const staged = await stageDocumentRemoval(environment.VOYA_DOCUMENTS_PATH, document.storagePath)
+    try {
+      await sql`delete from documents where id = ${document.id}`
+    } catch (error) {
+      await staged.rollback()
+      throw error
+    }
+    await staged.commit().catch((error) => request.log.error(error, 'Não foi possível limpar o ficheiro apagado'))
+    return reply.code(204).send()
   })
 
   app.put('/api/activities/:id/documents', async (request, reply) => {

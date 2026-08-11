@@ -9,8 +9,15 @@ import {
   normalizeOriginalFilename,
   openDocumentFile,
   removeDocumentFile,
+  stageDocumentRemoval,
   storeDocumentFile,
 } from './storage.ts'
+
+async function readStream(file: Awaited<ReturnType<typeof openDocumentFile>>) {
+  const chunks: Buffer[] = []
+  for await (const chunk of file.stream) chunks.push(Buffer.from(chunk))
+  return Buffer.concat(chunks)
+}
 
 test('stores and opens a document inside its trip directory', async () => {
   const root = await mkdtemp(join(tmpdir(), 'voya-documents-'))
@@ -46,4 +53,22 @@ test('rejects paths outside the configured storage root', async () => {
 
 test('normalizes untrusted original filenames', () => {
   assert.equal(normalizeOriginalFilename('../../Bilhete: Roma?.PDF'), '.._.._Bilhete_ Roma_.PDF')
+})
+
+test('stages deletion and can restore or commit it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'voya-documents-'))
+  try {
+    const first = await storeDocumentFile(root, 'trip-id', 'application/pdf', Readable.from('restore'))
+    const stagedFirst = await stageDocumentRemoval(root, first.storagePath)
+    await assert.rejects(openDocumentFile(root, first.storagePath))
+    await stagedFirst.rollback()
+    assert.equal((await readStream(await openDocumentFile(root, first.storagePath))).toString(), 'restore')
+
+    const second = await storeDocumentFile(root, 'trip-id', 'application/pdf', Readable.from('delete'))
+    const stagedSecond = await stageDocumentRemoval(root, second.storagePath)
+    await stagedSecond.commit()
+    await assert.rejects(openDocumentFile(root, second.storagePath))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
