@@ -66,7 +66,13 @@ try {
   for (const item of manifest) {
     const linkedIds = item.activities.map((sourceKey) => activityIds.get(sourceKey))
     const current = currentByFilename.get(item.file)
-    if (current) {
+    const expectedTravelers = [...(item.travelerIds ?? travelers)].sort()
+    const currentTravelers = [...(current?.travelerIds ?? [])].sort()
+    const metadataMatches = current
+      && current.title === item.title
+      && current.category === item.category
+      && JSON.stringify(currentTravelers) === JSON.stringify(expectedTravelers)
+    if (metadataMatches) {
       await api(`/api/documents/${current.id}/activities`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -74,6 +80,11 @@ try {
       })
       console.info(`Atualizado: ${item.title}`)
       continue
+    }
+    if (current) {
+      await api(`/api/documents/${current.id}`, { method: 'DELETE' })
+      currentByFilename.delete(item.file)
+      console.info(`Substituído: ${current.title}`)
     }
 
     const body = new FormData()
