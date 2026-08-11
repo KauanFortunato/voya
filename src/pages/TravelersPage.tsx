@@ -121,7 +121,7 @@ function TravelerEditor({ traveler, onClose, onSaved }: TravelerEditorProps) {
           <label className="traveler-editor__field"><span>Contacto de emergência</span><input maxLength={120} value={draft.emergencyContactName} onChange={(event) => setDraft((current) => ({ ...current, emergencyContactName: event.target.value }))} placeholder="Nome" /></label>
           <label className="traveler-editor__field"><span>Telefone</span><input type="tel" maxLength={40} value={draft.emergencyContactPhone} onChange={(event) => setDraft((current) => ({ ...current, emergencyContactPhone: event.target.value }))} placeholder="+351…" /></label>
         </div>
-        <label className="traveler-editor__field"><span>Outras notas</span><textarea rows={3} maxLength={1000} value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} placeholder="O que a família deve considerar durante a viagem?" /></label>
+        <label className="traveler-editor__field"><span>Outras notas</span><textarea rows={3} maxLength={1000} value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} placeholder="O que deve ser considerado durante a viagem?" /></label>
 
         {saveState === 'error' && <p className="traveler-editor__error" role="alert">Não foi possível guardar. As preferências anteriores continuam seguras.</p>}
         <button className="traveler-editor__save" type="submit" disabled={saveState === 'saving'} aria-busy={saveState === 'saving'}>
@@ -167,10 +167,10 @@ export default function TravelersPage() {
 
   return (
     <main className="travelers-page" id="main-content">
-      <SubpageHeader kicker="Família Fortunato" title="Viajantes" />
+      <SubpageHeader kicker="Perfis da viagem" title="Viajantes" />
       <section className="travelers-intro">
         <HeartHandshake size={21} aria-hidden="true" />
-        <div><strong>Uma viagem que funciona para todos</strong><span>Ritmo, alimentação e necessidades ficam visíveis para a família.</span></div>
+        <div><strong>Uma viagem que funciona para todos</strong><span>Ritmo, alimentação e necessidades ficam visíveis para os demais viajantes.</span></div>
       </section>
       {savedMessage && <p className="travelers-feedback" role="status">{savedMessage}<button type="button" onClick={() => setSavedMessage('')}>Fechar</button></p>}
       {loading && !travelers.length && <div className="travelers-loading" role="status" aria-label="A carregar viajantes">{[0, 1, 2, 3].map((item) => <span key={item}><i /><b /><em /></span>)}</div>}

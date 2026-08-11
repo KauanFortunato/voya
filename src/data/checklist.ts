@@ -17,7 +17,7 @@ export type ChecklistGroup = {
 export const checklistGroups: ChecklistGroup[] = [
   {
     id: 'documents',
-    title: 'Documentos da família',
+    title: 'Documentos importantes',
     scope: 'family',
     items: [
       { id: 'identity', title: 'Passaportes e cartões', completed: true },

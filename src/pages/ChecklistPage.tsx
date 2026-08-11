@@ -11,7 +11,7 @@ import {
 import './ChecklistPage.css'
 
 const scopes: { value: ChecklistScope; label: string; icon: typeof UsersRound }[] = [
-  { value: 'family', label: 'Família', icon: UsersRound },
+  { value: 'family', label: 'Compartilhado', icon: UsersRound },
   { value: 'personal', label: 'Meu', icon: UserRound },
 ]
 
@@ -73,7 +73,7 @@ export default function ChecklistPage() {
       <section className="checklist-summary" aria-label={overallLabel}>
         <div className="checklist-summary__heading">
           <div>
-            <strong>{scope === 'family' ? 'Preparação da família' : 'Preparação de Kauan'}</strong>
+            <strong>{scope === 'family' ? 'Preparação compartilhada' : 'Preparação pessoal'}</strong>
             <span>{overallLabel}</span>
           </div>
           <b>{progress}%</b>

@@ -476,7 +476,7 @@ export default function DocumentsPage() {
               </button>
               <span className="document-sheet__eyebrow">Novo documento</span>
               <h2 id="document-upload-title">Revisar antes de enviar</h2>
-              <p id="document-upload-description">Organize o ficheiro para a família encontrá-lo rapidamente.</p>
+              <p id="document-upload-description">Organize o ficheiro para que todos possam encontrá-lo rapidamente.</p>
 
               <div className="document-upload-file">
                 <span><FileText size={20} aria-hidden="true" /></span>

@@ -104,7 +104,7 @@ export default function PlacesPage() {
       <section className="places-explainer" aria-label="Como usar Lugares">
         <div>
           <strong>Guarde primeiro, organize depois</strong>
-          <p>Reúna ideias da família aqui e use o botão + para levar um lugar ao roteiro.</p>
+          <p>Reúna suas ideias aqui e use o botão + para levar um lugar ao roteiro.</p>
         </div>
         <span>{places.length} guardados</span>
       </section>
