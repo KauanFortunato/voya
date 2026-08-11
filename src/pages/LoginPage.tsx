@@ -154,10 +154,19 @@ function Onboarding({ onComplete }: { onComplete: () => void }) {
       </div>
       <footer className="onboarding-footer">
         <div className="onboarding-progress" role="progressbar" aria-label={`Passo ${step + 1} de ${slides.length}`} aria-valuemin={1} aria-valuemax={slides.length} aria-valuenow={step + 1}>{slides.map((item, index) => <i key={item.title} className={index === step ? 'is-active' : ''} />)}</div>
-        <div className={`onboarding-actions${isFirst ? ' is-first' : ''}`}>
-          {!isFirst && <button className="onboarding-back" type="button" onClick={() => move(step - 1)}><ArrowLeft size={17} />Voltar</button>}
-          <motion.button layout className="onboarding-next" type="button" onClick={() => isLast ? onComplete() : move(step + 1)} transition={{ type: 'spring', duration: reduceMotion ? 0 : 0.3, bounce: 0 }}>{isLast ? 'Começar' : 'Avançar'}<ArrowRight size={18} /></motion.button>
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            className={`onboarding-actions${isFirst ? ' is-first' : ''}`}
+            key={isFirst ? 'single-action' : 'split-actions'}
+            initial={reduceMotion ? false : { opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -2 }}
+            transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+          >
+            {!isFirst && <button className="onboarding-back" type="button" onClick={() => move(step - 1)}><ArrowLeft size={17} />Voltar</button>}
+            <button className="onboarding-next" type="button" onClick={() => isLast ? onComplete() : move(step + 1)}>{isLast ? 'Começar' : 'Avançar'}<ArrowRight size={18} /></button>
+          </motion.div>
+        </AnimatePresence>
       </footer>
     </main>
   )
