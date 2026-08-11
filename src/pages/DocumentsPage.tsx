@@ -1,8 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   BedDouble,
   BusFront,
+  Check,
   ChevronRight,
   FileText,
   Plane,
@@ -22,6 +23,7 @@ import {
   documentSeed,
   travelers,
   type DocumentCategory,
+  type TravelerId,
   type TripDocument,
 } from '../data/documents'
 import './DocumentsPage.css'
@@ -38,6 +40,25 @@ const categoryIcons: Record<DocumentCategory, LucideIcon> = {
 }
 
 const travelerIds = new Set(Object.keys(travelers))
+const uploadCategories: DocumentCategory[] = ['Voo', 'Hospedagem', 'Transporte', 'Ingresso', 'Seguro', 'Outro']
+const allowedUploadTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+const maxUploadSize = 25 * 1024 * 1024
+
+type UploadDraft = {
+  file: File
+  title: string
+  category: DocumentCategory
+  travelerIds: TravelerId[]
+}
+
+function inferDocumentTitle(filename: string) {
+  return filename.replace(/\.[^.]+$/, '').replaceAll(/[-_]+/g, ' ').trim()
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
+  return `${(size / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`
+}
 
 function mapApiDocument(document: ApiDocument): TripDocument {
   const date = new Date(document.startsAt ?? document.createdAt)
@@ -77,6 +98,7 @@ export default function DocumentsPage() {
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
   const [selected, setSelected] = useState<TripDocument | null>(null)
   const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
+  const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [uploadState, setUploadState] = useState<{
@@ -114,28 +136,69 @@ export default function DocumentsPage() {
   const confirmed = documents.filter((document) => document.status === 'Confirmado').length
   const progress = documents.length ? Math.round((confirmed / documents.length) * 100) : 0
 
-  const importFile = async (file?: File) => {
+  const prepareUpload = (file?: File) => {
     if (!file) return
+    if (fileInput.current) fileInput.current.value = ''
     const userId = user?.displayName.toLocaleLowerCase('pt-PT')
     if (!userId || !travelerIds.has(userId)) {
       setUploadState({ status: 'error', progress: 0, message: 'Não foi possível associar o viajante atual.' })
       return
     }
+    if (!allowedUploadTypes.has(file.type)) {
+      setUploadState({ status: 'error', progress: 0, message: 'Use um ficheiro PDF, JPG, PNG ou WebP.' })
+      return
+    }
+    if (file.size > maxUploadSize) {
+      setUploadState({ status: 'error', progress: 0, message: 'O ficheiro deve ter no máximo 25 MB.' })
+      return
+    }
 
-    setUploadState({ status: 'uploading', progress: 0, message: `A enviar ${file.name}` })
+    setUploadState({ status: 'idle', progress: 0, message: '' })
+    setUploadDraft({
+      file,
+      title: inferDocumentTitle(file.name),
+      category: 'Outro',
+      travelerIds: [userId as TravelerId],
+    })
+  }
+
+  const closeUploadDraft = () => {
+    if (uploadState.status === 'uploading') return
+    setUploadDraft(null)
+    setUploadState({ status: 'idle', progress: 0, message: '' })
+  }
+
+  const toggleUploadTraveler = (travelerId: TravelerId) => {
+    setUploadDraft((current) => {
+      if (!current) return current
+      const selected = current.travelerIds.includes(travelerId)
+        ? current.travelerIds.filter((id) => id !== travelerId)
+        : [...current.travelerIds, travelerId]
+      return { ...current, travelerIds: selected }
+    })
+  }
+
+  const submitUpload = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!uploadDraft || uploadState.status === 'uploading') return
+    const title = uploadDraft.title.trim()
+    if (!title || !uploadDraft.travelerIds.length) return
+
+    setUploadState({ status: 'uploading', progress: 0, message: `A enviar ${uploadDraft.file.name}` })
     try {
       const uploaded = await uploadDocument(
-        file,
+        uploadDraft.file,
         {
-          title: file.name.replace(/\.[^.]+$/, '').replaceAll(/[-_]+/g, ' ').trim(),
-          category: 'Outro',
-          travelerIds: [userId],
+          title,
+          category: uploadDraft.category,
+          travelerIds: uploadDraft.travelerIds,
         },
         (progress) => setUploadState((current) => ({ ...current, progress })),
       )
       const document = mapApiDocument(uploaded)
       setRemoteDocuments((current) => [document, ...current])
       setCategory('Todos')
+      setUploadDraft(null)
       setSelected(document)
       setUploadState({ status: 'success', progress: 100, message: 'Documento guardado na NAS.' })
     } catch (error) {
@@ -145,7 +208,6 @@ export default function DocumentsPage() {
         message: error instanceof Error ? error.message : 'Não foi possível importar o documento',
       })
     }
-    if (fileInput.current) fileInput.current.value = ''
   }
 
   const openFile = (document: TripDocument) => {
@@ -181,7 +243,7 @@ export default function DocumentsPage() {
         type="file"
         accept="application/pdf,image/*"
         disabled={uploadState.status === 'uploading'}
-        onChange={(event) => void importFile(event.target.files?.[0])}
+        onChange={(event) => prepareUpload(event.target.files?.[0])}
       />
 
       {uploadState.status !== 'idle' && (
@@ -289,6 +351,133 @@ export default function DocumentsPage() {
           </div>
         )}
       </section>
+
+      <ModalPortal open={Boolean(uploadDraft)} onClose={closeUploadDraft}>
+        {uploadDraft && (
+          <div className="document-sheet-layer" role="presentation">
+            <motion.button
+              className="document-sheet-backdrop"
+              type="button"
+              aria-label="Cancelar importação"
+              disabled={uploadState.status === 'uploading'}
+              onClick={closeUploadDraft}
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            />
+            <motion.form
+              className="document-sheet document-upload-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="document-upload-title"
+              aria-describedby="document-upload-description"
+              onSubmit={(event) => void submitUpload(event)}
+              initial={reduceMotion ? false : { y: '100%' }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={reduceMotion ? undefined : { y: 24, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.34, bounce: 0 }}
+            >
+              <span className="document-sheet__handle" aria-hidden="true" />
+              <button
+                className="document-sheet__close"
+                type="button"
+                aria-label="Cancelar importação"
+                disabled={uploadState.status === 'uploading'}
+                onClick={closeUploadDraft}
+              >
+                <X size={19} aria-hidden="true" />
+              </button>
+              <span className="document-sheet__eyebrow">Novo documento</span>
+              <h2 id="document-upload-title">Revisar antes de enviar</h2>
+              <p id="document-upload-description">Organize o ficheiro para a família encontrá-lo rapidamente.</p>
+
+              <div className="document-upload-file">
+                <span><FileText size={20} aria-hidden="true" /></span>
+                <div>
+                  <strong>{uploadDraft.file.name}</strong>
+                  <small>{formatFileSize(uploadDraft.file.size)}</small>
+                </div>
+              </div>
+
+              <label className="document-upload-field">
+                <span>Título</span>
+                <input
+                  value={uploadDraft.title}
+                  maxLength={160}
+                  disabled={uploadState.status === 'uploading'}
+                  onChange={(event) => setUploadDraft((current) => current ? { ...current, title: event.target.value } : current)}
+                  required
+                />
+              </label>
+
+              <fieldset className="document-upload-field" disabled={uploadState.status === 'uploading'}>
+                <legend>Categoria</legend>
+                <div className="document-upload-categories">
+                  {uploadCategories.map((option) => {
+                    const Icon = categoryIcons[option]
+                    return (
+                      <button
+                        type="button"
+                        key={option}
+                        className={uploadDraft.category === option ? 'is-selected' : ''}
+                        aria-pressed={uploadDraft.category === option}
+                        onClick={() => setUploadDraft((current) => current ? { ...current, category: option } : current)}
+                      >
+                        <Icon size={16} aria-hidden="true" />
+                        {option}
+                      </button>
+                    )
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset className="document-upload-field" disabled={uploadState.status === 'uploading'}>
+                <legend>Viajantes associados</legend>
+                <div className="document-upload-travelers">
+                  {(Object.entries(travelers) as Array<[TravelerId, (typeof travelers)[TravelerId]]>).map(([id, traveler]) => {
+                    const isSelected = uploadDraft.travelerIds.includes(id)
+                    return (
+                      <button
+                        type="button"
+                        key={id}
+                        className={isSelected ? 'is-selected' : ''}
+                        aria-pressed={isSelected}
+                        onClick={() => toggleUploadTraveler(id)}
+                      >
+                        <i>{traveler.initials}</i>
+                        <span>{traveler.name}</span>
+                        {isSelected && <Check size={15} aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
+                </div>
+                {!uploadDraft.travelerIds.length && <small className="document-upload-help">Escolha ao menos um viajante.</small>}
+              </fieldset>
+
+              {uploadState.status === 'error' && <p className="document-upload-error" role="alert">{uploadState.message}</p>}
+              {uploadState.status === 'uploading' && (
+                <div className="document-upload-active" role="status">
+                  <span>A enviar para a NAS</span>
+                  <strong>{uploadState.progress}%</strong>
+                  <span className="documents-upload-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={uploadState.progress}>
+                    <i style={{ transform: `scaleX(${uploadState.progress / 100})` }} />
+                  </span>
+                </div>
+              )}
+
+              <button
+                className="document-sheet__primary"
+                type="submit"
+                disabled={uploadState.status === 'uploading' || !uploadDraft.title.trim() || !uploadDraft.travelerIds.length}
+                aria-busy={uploadState.status === 'uploading'}
+              >
+                {uploadState.status === 'uploading' ? `A enviar… ${uploadState.progress}%` : 'Guardar na NAS'}
+              </button>
+            </motion.form>
+          </div>
+        )}
+      </ModalPortal>
 
       <ModalPortal open={Boolean(selected)} onClose={() => setSelected(null)}>
         {selected && (

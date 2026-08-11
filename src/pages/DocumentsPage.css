@@ -290,6 +290,7 @@
 
 .document-sheet__handle { display: block; width: 36px; height: 4px; margin: 0 auto 15px; border-radius: 999px; background: #c9d4dd; }
 .document-sheet__close { position: absolute; top: 20px; right: 17px; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; background: white; cursor: pointer; }
+.document-sheet__close:disabled { cursor: default; opacity: 0.5; }
 .document-sheet__eyebrow { color: var(--color-primary-dark); font-size: 0.65rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.08em; }
 .document-sheet h2 { max-width: calc(100% - 44px); margin-top: 4px; font-size: 1.25rem; }
 .document-sheet > p { margin-top: 3px; color: var(--color-text-secondary); font-size: 0.73rem; }
@@ -317,6 +318,161 @@
   line-height: 1.5;
 }
 
+.document-upload-sheet { max-height: 92dvh; }
+
+.document-upload-file {
+  display: grid;
+  min-height: 62px;
+  align-items: center;
+  padding: 10px 12px;
+  margin-top: 17px;
+  border-radius: 15px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 6%);
+  gap: 10px;
+}
+
+.document-upload-file > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+}
+
+.document-upload-file > div { display: grid; min-width: 0; gap: 2px; }
+.document-upload-file strong { overflow: hidden; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.document-upload-file small { color: var(--color-text-secondary); font-size: 0.62rem; }
+
+.document-upload-field {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  margin: 17px 0 0;
+  border: 0;
+  gap: 7px;
+}
+
+.document-upload-field > span,
+.document-upload-field legend {
+  width: 100%;
+  padding: 0;
+  color: var(--color-text);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.document-upload-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  color: var(--color-text);
+  background: white;
+  font-size: 0.76rem;
+}
+
+.document-upload-categories {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.document-upload-categories button {
+  display: flex;
+  min-width: 0;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-secondary);
+  background: white;
+  font-size: 0.61rem;
+  font-weight: 750;
+  cursor: pointer;
+  gap: 5px;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.document-upload-categories button.is-selected {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+}
+
+.document-upload-travelers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.document-upload-travelers button {
+  display: grid;
+  min-width: 0;
+  min-height: 47px;
+  align-items: center;
+  padding: 5px 8px 5px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  grid-template-columns: 30px minmax(0, 1fr) 16px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  background: white;
+  cursor: pointer;
+  gap: 7px;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.document-upload-travelers button > i {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  font-size: 0.55rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.document-upload-travelers button > span { overflow: hidden; font-size: 0.68rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.document-upload-travelers button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
+.document-upload-travelers button.is-selected > i { color: white; background: var(--color-primary-dark); }
+.document-upload-help { color: #9b3c36; font-size: 0.62rem; }
+
+.document-upload-error {
+  padding: 10px 12px;
+  margin-top: 14px !important;
+  border-radius: 12px;
+  color: #9b3c36 !important;
+  background: #fff0ee;
+  font-size: 0.66rem !important;
+}
+
+.document-upload-active {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  min-height: 50px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 13px;
+  margin-top: 14px;
+  border-radius: 13px;
+  color: var(--color-primary-dark);
+  background: white;
+}
+
+.document-upload-active > span:first-child { font-size: 0.65rem; font-weight: 750; }
+.document-upload-active > strong { font-size: 0.72rem; }
+
 .document-sheet__primary {
   width: 100%;
   min-height: 48px;
@@ -329,6 +485,8 @@
   font-weight: 800;
   cursor: pointer;
 }
+
+.document-sheet__primary:disabled { cursor: default; opacity: 0.55; }
 
 .document-sheet .document-sheet__notice { padding: 11px 12px; margin-top: 17px; border-radius: 13px; color: var(--color-text-secondary); background: white; line-height: 1.5; }
 
@@ -348,6 +506,8 @@
   .documents-progress i,
   .documents-upload-progress i,
   .documents-filters button,
+  .document-upload-categories button,
+  .document-upload-travelers button,
   .document-card { transition-duration: 0.01ms; }
 
   .documents-loading i,
