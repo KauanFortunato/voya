@@ -10,6 +10,7 @@ import {
   WalletCards,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
 
 import IconButton from '../components/IconButton'
 import { useAuth } from '../auth/auth'
@@ -26,7 +27,13 @@ const menuItems = [
 
 export default function MorePage() {
   const { user, logout } = useAuth()
+  const [loggingOut, setLoggingOut] = useState(false)
   const initials = user?.displayName.slice(0, 2).toLocaleUpperCase('pt-PT') ?? 'VF'
+  const handleLogout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try { await logout() } finally { setLoggingOut(false) }
+  }
 
   return (
     <main className="more-page" id="main-content">
@@ -60,9 +67,9 @@ export default function MorePage() {
         ))}
       </nav>
 
-      <button className="more-logout" type="button" onClick={() => void logout()}>
+      <button className="more-logout" type="button" disabled={loggingOut} aria-busy={loggingOut} onClick={() => void handleLogout()}>
         <LogOut size={18} aria-hidden="true" />
-        Sair desta conta
+        {loggingOut ? 'A sair…' : 'Sair desta conta'}
       </button>
     </main>
   )

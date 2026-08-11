@@ -71,13 +71,13 @@ function ExpenseEditor({ budget, onClose, onCreated }: ExpenseEditorProps) {
   )
 }
 
-function ExpenseRow({ expense, onDelete }: { expense: ApiExpense; onDelete: (expense: ApiExpense) => void }) {
+function ExpenseRow({ expense, deleting, onDelete }: { expense: ApiExpense; deleting: boolean; onDelete: (expense: ApiExpense) => void }) {
   return (
     <article className="expense-row">
       <span className="expense-row__icon"><ReceiptText size={18} /></span>
       <div className="expense-row__main"><strong>{expense.title}</strong><span>{expense.paidByName} pagou · {date.format(new Date(expense.spentAt))}</span></div>
       <div className="expense-row__amount"><strong>{money.format(expense.amount)}</strong><span>{expense.category}</span></div>
-      {expense.canDelete && <button type="button" aria-label={`Apagar ${expense.title}`} onClick={() => onDelete(expense)}><Trash2 size={16} /></button>}
+      {expense.canDelete && <button type="button" disabled={deleting} aria-busy={deleting} aria-label={deleting ? `A apagar ${expense.title}` : `Apagar ${expense.title}`} onClick={() => onDelete(expense)}><Trash2 size={16} /></button>}
     </article>
   )
 }
@@ -91,6 +91,7 @@ export default function BudgetPage() {
   const [budgetDraft, setBudgetDraft] = useState('')
   const [savingBudget, setSavingBudget] = useState(false)
   const [feedback, setFeedback] = useState('')
+  const [deletingIds, setDeletingIds] = useState<string[]>([])
 
   const load = async (signal?: AbortSignal) => {
     setLoading(true)
@@ -134,12 +135,15 @@ export default function BudgetPage() {
   }
 
   const remove = async (expense: ApiExpense) => {
+    if (deletingIds.includes(expense.id)) return
     if (!window.confirm(`Apagar a despesa “${expense.title}”? Esta ação não pode ser desfeita.`)) return
+    setDeletingIds((current) => [...current, expense.id])
     try {
       await deleteExpense(expense.id)
       setBudget((current) => current ? { ...current, expenses: current.expenses.filter(({ id }) => id !== expense.id) } : current)
       setFeedback('Despesa apagada.')
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Não foi possível apagar') }
+    finally { setDeletingIds((current) => current.filter((id) => id !== expense.id)) }
   }
 
   return (
@@ -151,12 +155,12 @@ export default function BudgetPage() {
       {budget && <>
         <section className="budget-hero">
           <div className="budget-hero__top"><span><WalletCards size={18} />Orçamento da viagem</span>{budget.canEditBudget && <button type="button" onClick={() => { setBudgetDraft(String(budget.trip.budgetAmount)); setBudgetEditing(true) }}><Pencil size={15} />Editar</button>}</div>
-          {budgetEditing ? <form className="budget-inline-form" onSubmit={(event) => void saveBudget(event)}><label><span>€</span><input autoFocus inputMode="decimal" value={budgetDraft} onChange={(event) => setBudgetDraft(event.target.value)} /></label><button type="submit" disabled={savingBudget}>{savingBudget ? 'A guardar…' : 'Guardar'}</button><button type="button" onClick={() => setBudgetEditing(false)}>Cancelar</button></form> : <strong className="budget-hero__value">{money.format(budget.trip.budgetAmount)}</strong>}
+          {budgetEditing ? <form className="budget-inline-form" onSubmit={(event) => void saveBudget(event)}><label><span>€</span><input autoFocus inputMode="decimal" value={budgetDraft} onChange={(event) => setBudgetDraft(event.target.value)} /></label><button type="submit" disabled={savingBudget} aria-busy={savingBudget}>{savingBudget ? 'A guardar…' : 'Guardar'}</button><button type="button" disabled={savingBudget} onClick={() => setBudgetEditing(false)}>Cancelar</button></form> : <strong className="budget-hero__value">{money.format(budget.trip.budgetAmount)}</strong>}
           <div className="budget-progress"><i style={{ transform: `scaleX(${totals.progress / 100})` }} /></div>
           <div className="budget-hero__totals"><span><small>Gasto</small><b>{money.format(totals.spent)}</b></span><span><small>{totals.remaining >= 0 ? 'Disponível' : 'Acima do orçamento'}</small><b className={totals.remaining < 0 ? 'is-negative' : ''}>{money.format(Math.abs(totals.remaining))}</b></span></div>
         </section>
         <section className="budget-balances"><div className="budget-section-title"><div><span>Acertos entre viajantes</span><h2>Quem tem a receber</h2></div></div><div>{totals.balances.map((traveler) => <article key={traveler.id}><span className="budget-avatar">{traveler.displayName.slice(0, 2).toUpperCase()}</span><strong>{traveler.displayName}</strong><span className={traveler.balance >= 0 ? 'is-positive' : 'is-negative'}>{traveler.balance >= 0 ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}{traveler.balance === 0 ? 'acertado' : `${traveler.balance > 0 ? 'recebe' : 'deve'} ${money.format(Math.abs(traveler.balance))}`}</span></article>)}</div></section>
-        <section className="budget-expenses"><div className="budget-section-title"><div><span>Histórico</span><h2>Despesas</h2></div><b>{budget.expenses.length}</b></div>{budget.expenses.length ? <div>{budget.expenses.map((expense) => <ExpenseRow expense={expense} onDelete={(item) => void remove(item)} key={expense.id} />)}</div> : <div className="budget-empty"><ReceiptText size={24} /><strong>Nenhuma despesa ainda</strong><span>Registre o primeiro pagamento da viagem.</span><button type="button" onClick={() => setEditorOpen(true)}><Plus size={16} />Adicionar despesa</button></div>}</section>
+        <section className="budget-expenses"><div className="budget-section-title"><div><span>Histórico</span><h2>Despesas</h2></div><b>{budget.expenses.length}</b></div>{budget.expenses.length ? <div>{budget.expenses.map((expense) => <ExpenseRow expense={expense} deleting={deletingIds.includes(expense.id)} onDelete={(item) => void remove(item)} key={expense.id} />)}</div> : <div className="budget-empty"><ReceiptText size={24} /><strong>Nenhuma despesa ainda</strong><span>Registre o primeiro pagamento da viagem.</span><button type="button" onClick={() => setEditorOpen(true)}><Plus size={16} />Adicionar despesa</button></div>}</section>
       </>}
       <ModalPortal open={editorOpen && Boolean(budget)} onClose={() => setEditorOpen(false)}>{budget && <ExpenseEditor budget={budget} onClose={() => setEditorOpen(false)} onCreated={() => { setEditorOpen(false); setFeedback('Despesa adicionada e dividida.'); void load() }} />}</ModalPortal>
     </main>

@@ -669,6 +669,7 @@ export default function DocumentsPage() {
                       className="document-associations__save"
                       type="button"
                       disabled={associationState === 'saving'}
+                      aria-busy={associationState === 'saving'}
                       onClick={() => void saveDocumentActivities()}
                     >
                       {associationState === 'saving' ? 'A guardar…' : 'Guardar ligações'}
@@ -734,7 +735,7 @@ export default function DocumentsPage() {
               {deleteState === 'error' && <p className="document-delete-sheet__error" role="alert">Não foi possível apagar. O documento continua guardado.</p>}
               <div className="document-delete-sheet__actions">
                 <button type="button" disabled={deleteState === 'deleting'} onClick={cancelDocumentDeletion}>Cancelar</button>
-                <button type="button" disabled={deleteState === 'deleting'} onClick={() => void confirmDocumentDeletion()}>
+                <button type="button" disabled={deleteState === 'deleting'} aria-busy={deleteState === 'deleting'} onClick={() => void confirmDocumentDeletion()}>
                   {deleteState === 'deleting' ? 'A apagar…' : 'Sim, apagar'}
                 </button>
               </div>

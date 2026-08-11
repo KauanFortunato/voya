@@ -19,6 +19,18 @@
   font-size: 0.74rem;
 }
 
+.itinerary-sync {
+  padding: 8px 10px;
+  margin: -5px 0 12px;
+  border-radius: 10px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+
+.itinerary-sync.is-error { color: #9b3c36; background: #fff0ee; }
+
 .itinerary-header p {
   color: var(--color-text-secondary);
   font-size: 0.82rem;

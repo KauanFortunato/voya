@@ -278,7 +278,7 @@ function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: 
 
         {saveState === 'error' && <p className="itinerary-editor__error" role="alert">Não foi possível guardar as ligações.</p>}
         <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>
-        <button className="itinerary-editor__save" type="submit" disabled={saveState === 'saving'}>
+        <button className="itinerary-editor__save" type="submit" disabled={saveState === 'saving'} aria-busy={saveState === 'saving'}>
           <Save size={17} aria-hidden="true" />{saveState === 'saving' ? 'A guardar…' : 'Guardar alterações'}
         </button>
       </motion.form>
@@ -304,12 +304,17 @@ export default function ItineraryPage() {
   const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
   const [documents, setDocuments] = useState<ApiDocument[]>([])
+  const [syncState, setSyncState] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
     const controller = new AbortController()
+    setSyncState('loading')
     void listDocuments(controller.signal).then((payload) => {
       const remoteDays = mapRemoteItinerary(payload.activities, payload.documents)
-      if (!remoteDays.length) return
+      if (!remoteDays.length) {
+        setSyncState('ready')
+        return
+      }
       setDocuments(payload.documents)
       setDays(remoteDays)
       const targetId = searchParams.get('activity')
@@ -321,7 +326,11 @@ export default function ItineraryPage() {
           setEditingActivity({ dayIndex, activity })
         }
       }
-    }).catch(() => undefined)
+      setSyncState('ready')
+    }).catch((reason: unknown) => {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return
+      setSyncState('error')
+    })
     return () => controller.abort()
   }, [searchParams])
 
@@ -392,7 +401,7 @@ export default function ItineraryPage() {
   }
 
   return (
-    <main className="itinerary-page" id="main-content">
+    <main className="itinerary-page" id="main-content" aria-busy={syncState === 'loading'}>
       <header className="itinerary-header">
         <div>
           <p>{tripDateLabel} · 10 dias</p>
@@ -404,6 +413,21 @@ export default function ItineraryPage() {
       <p className="itinerary-helper">
         {tripName} · toque numa atividade para editar horários e detalhes. Os blocos azuis mostram onde ainda cabe um plano.
       </p>
+
+      <AnimatePresence initial={false}>
+        {syncState !== 'ready' && (
+          <motion.p
+            className={`itinerary-sync${syncState === 'error' ? ' is-error' : ''}`}
+            role={syncState === 'error' ? 'alert' : 'status'}
+            initial={reduceMotion ? false : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -2 }}
+            transition={{ type: 'spring', duration: 0.18, bounce: 0 }}
+          >
+            {syncState === 'loading' ? 'Sincronizando o roteiro com a NAS…' : 'Não foi possível sincronizar. A versão guardada neste dispositivo continua disponível.'}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <div className="itinerary-days">
         {days.map((day, dayIndex) => {

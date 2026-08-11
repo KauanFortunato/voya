@@ -49,6 +49,7 @@
 .expense-row__amount { text-align: right; }
 .expense-row__amount strong { font-size: .73rem; }
 .expense-row > button { display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 10px; color: #ad6262; background: #fff1f1; cursor: pointer; }
+.expense-row > button:disabled { opacity: .55; cursor: wait; }
 .budget-empty { display: grid; place-items: center; padding: 27px 16px; color: var(--color-text-secondary); text-align: center; }
 .budget-empty > svg { margin-bottom: 8px; color: var(--color-primary); }
 .budget-empty strong { color: var(--color-text); font-size: .8rem; }

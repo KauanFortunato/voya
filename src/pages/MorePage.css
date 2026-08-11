@@ -157,6 +157,7 @@
 }
 
 .more-logout:active { transform: scale(0.99); }
+.more-logout:disabled { opacity: 0.62; cursor: wait; }
 
 @media (prefers-reduced-motion: reduce) {
   .more-menu__row,
