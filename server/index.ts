@@ -1,7 +1,10 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import cookie from '@fastify/cookie'
 import multipart from '@fastify/multipart'
+import staticFiles from '@fastify/static'
 import Fastify from 'fastify'
 import type { FastifyRequest } from 'fastify'
 import { z } from 'zod'
@@ -48,6 +51,12 @@ async function start() {
     },
   })
   await ensureDocumentsStorage(environment.VOYA_DOCUMENTS_PATH)
+
+  if (environment.VOYA_WEB_ROOT) {
+    const webRoot = resolve(environment.VOYA_WEB_ROOT)
+    if (!existsSync(webRoot)) throw new Error(`Interface web não encontrada em ${webRoot}`)
+    await app.register(staticFiles, { root: webRoot })
+  }
 
   app.addHook('onClose', async () => {
     await sql.end()
