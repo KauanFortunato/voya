@@ -2,6 +2,33 @@ import { randomUUID } from 'node:crypto'
 
 import { createDatabaseClient } from './client.ts'
 
+const initialChecklist = [
+  {
+    title: 'Documentos importantes',
+    owner: 'family',
+    position: 0,
+    items: ['Passaportes e cartões', 'Seguro de viagem', 'Bilhetes de comboio', 'Guardar reservas offline'],
+  },
+  {
+    title: 'Preparação',
+    owner: 'family',
+    position: 1,
+    items: ['Fazer check-in do voo', 'Confirmar hospedagens', 'Baixar mapas offline', 'Verificar roaming dos telemóveis'],
+  },
+  {
+    title: 'Mochila',
+    owner: 'organizer',
+    position: 0,
+    items: ['Carregador e cabo', 'Power bank', 'Fones', 'Medicamentos pessoais'],
+  },
+  {
+    title: 'Mala',
+    owner: 'organizer',
+    position: 1,
+    items: ['Roupa para 7 dias', 'Sapatos confortáveis', 'Pijama', 'Higiene pessoal'],
+  },
+] as const
+
 export async function seedInitialTrip() {
   const sql = createDatabaseClient()
 
@@ -45,6 +72,23 @@ export async function seedInitialTrip() {
         from household_members
         where household_id = ${context.householdId}
       `
+      for (const group of initialChecklist) {
+        const groupId = randomUUID()
+        await transaction`
+          insert into checklist_groups (id, trip_id, owner_user_id, title, position)
+          values (
+            ${groupId}, ${tripId},
+            ${group.owner === 'organizer' ? context.organizerId : null},
+            ${group.title}, ${group.position}
+          )
+        `
+        for (const [itemPosition, title] of group.items.entries()) {
+          await transaction`
+            insert into checklist_items (id, group_id, title, position)
+            values (${randomUUID()}, ${groupId}, ${title}, ${itemPosition})
+          `
+        }
+      }
     })
 
     console.info('Viagem inicial criada com os quatro viajantes')

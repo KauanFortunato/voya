@@ -57,6 +57,10 @@ const expenseSchema = z.object({
 })
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
+const checklistItemSchema = z.object({
+  groupId: z.string().uuid(),
+  title: z.string().trim().min(1).max(160),
+})
 
 function splitAmount(amount: number, travelerIds: string[]) {
   const uniqueIds = [...new Set(travelerIds)]
@@ -298,6 +302,132 @@ async function start() {
                 emergency_contact_name, emergency_contact_phone, notes, updated_at
     `
     return { profile }
+  })
+
+  app.get('/api/checklist', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver a checklist' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const groups = await sql<{
+      id: string
+      title: string
+      ownerUserId: string | null
+      ownerName: string | null
+      position: number
+    }[]>`
+      select cg.id, cg.title, cg.owner_user_id, owner.display_name as owner_name, cg.position
+      from checklist_groups cg
+      left join users owner on owner.id = cg.owner_user_id
+      where cg.trip_id = ${trip.id}
+        and (cg.owner_user_id is null or cg.owner_user_id = ${user.id})
+      order by case when cg.owner_user_id is null then 0 else 1 end, cg.position, cg.title
+    `
+    const groupIds = groups.map(({ id }) => id)
+    const items = groupIds.length
+      ? await sql<{
+          id: string
+          groupId: string
+          title: string
+          completedAt: Date | null
+          completedByName: string | null
+          position: number
+        }[]>`
+          select ci.id, ci.group_id, ci.title, ci.completed_at,
+                 completed_by.display_name as completed_by_name, ci.position
+          from checklist_items ci
+          left join users completed_by on completed_by.id = ci.completed_by
+          where ci.group_id in ${sql(groupIds)}
+          order by ci.position, ci.title
+        `
+      : []
+
+    return {
+      trip,
+      currentUser: user,
+      groups: groups.map((group) => ({
+        ...group,
+        scope: group.ownerUserId ? 'personal' : 'family',
+        canAddItems: group.ownerUserId === user.id || (group.ownerUserId === null && user.role === 'organizer'),
+        items: items
+          .filter((item) => item.groupId === group.id)
+          .map((item) => ({ ...item, completed: Boolean(item.completedAt) })),
+      })),
+    }
+  })
+
+  app.post('/api/checklist/items', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para adicionar itens' })
+    const body = checklistItemSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Preencha o item e escolha uma lista' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const itemId = randomUUID()
+    const item = await sql.begin(async (transaction) => {
+      const [group] = await transaction<{ id: string; ownerUserId: string | null }[]>`
+        select id, owner_user_id from checklist_groups
+        where id = ${body.data.groupId} and trip_id = ${trip.id}
+        for update
+      `
+      if (!group) return null
+      const canAdd = group.ownerUserId === user.id || (group.ownerUserId === null && user.role === 'organizer')
+      if (!canAdd) return false
+      const [position] = await transaction<{ next: number }[]>`
+        select coalesce(max(position), -1) + 1 as next
+        from checklist_items where group_id = ${group.id}
+      `
+      const [created] = await transaction<{
+        id: string
+        title: string
+        position: number
+      }[]>`
+        insert into checklist_items (id, group_id, title, position)
+        values (${itemId}, ${group.id}, ${body.data.title}, ${position?.next ?? 0})
+        returning id, title, position
+      `
+      return created
+    })
+    if (item === null) return reply.code(404).send({ error: 'Lista não encontrada' })
+    if (item === false) return reply.code(403).send({ error: 'Não pode adicionar itens a esta lista' })
+    return reply.code(201).send({
+      item: { ...item, completed: false, completedAt: null, completedByName: null },
+    })
+  })
+
+  app.put('/api/checklist/items/:id/completion', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para concluir itens' })
+    const params = z.object({ id: z.string().uuid() }).safeParse(request.params)
+    const body = activityCompletionSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Estado de conclusão inválido' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [item] = await sql<{ id: string }[]>`
+      select ci.id from checklist_items ci
+      join checklist_groups cg on cg.id = ci.group_id
+      where ci.id = ${params.data.id} and cg.trip_id = ${trip.id}
+        and (cg.owner_user_id is null or cg.owner_user_id = ${user.id})
+    `
+    if (!item) return reply.code(404).send({ error: 'Item não encontrado nesta checklist' })
+
+    if (body.data.completed) {
+      const [completion] = await sql<{ completedAt: Date }[]>`
+        update checklist_items
+        set completed_by = ${user.id}, completed_at = now()
+        where id = ${item.id}
+        returning completed_at
+      `
+      return { completed: true, completedAt: completion.completedAt, completedByName: user.displayName }
+    }
+    await sql`
+      update checklist_items set completed_by = null, completed_at = null
+      where id = ${item.id}
+    `
+    return { completed: false, completedAt: null, completedByName: null }
   })
 
   app.get('/api/today', async (request, reply) => {
