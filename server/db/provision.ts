@@ -24,9 +24,9 @@ export async function provisionDatabase() {
       isSuperuser: boolean
     }[]>`
       select
-        rolcreaterole as can_create_role,
-        rolcreatedb as can_create_database,
-        rolsuper as is_superuser
+        rolcreaterole as "canCreateRole",
+        rolcreatedb as "canCreateDatabase",
+        rolsuper as "isSuperuser"
       from pg_roles
       where rolname = current_user
     `
