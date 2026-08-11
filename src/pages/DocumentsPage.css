@@ -365,6 +365,8 @@
   font-weight: 800;
 }
 
+.document-upload-field legend small { color: var(--color-text-secondary); font-size: 0.61rem; font-weight: 650; }
+
 .document-upload-field input {
   width: 100%;
   min-height: 46px;
@@ -446,6 +448,57 @@
 .document-upload-travelers button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
 .document-upload-travelers button.is-selected > i { color: white; background: var(--color-primary-dark); }
 .document-upload-help { color: #9b3c36; font-size: 0.62rem; }
+.document-upload-muted { color: var(--color-text-secondary); font-size: 0.64rem; }
+
+.document-upload-activities,
+.document-associations > div {
+  display: grid;
+  max-height: 210px;
+  overflow-y: auto;
+  gap: 6px;
+}
+
+.document-upload-activities button,
+.document-associations > div button {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  background: white;
+  cursor: pointer;
+  gap: 9px;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.document-upload-activities button > span,
+.document-associations > div button > span { display: grid; min-width: 0; gap: 2px; }
+.document-upload-activities strong,
+.document-associations b { overflow: hidden; color: var(--color-text); font-size: 0.67rem; text-overflow: ellipsis; white-space: nowrap; }
+.document-upload-activities small,
+.document-associations small { color: var(--color-text-secondary); font-size: 0.57rem; }
+.document-upload-activities button.is-selected,
+.document-associations > div button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
+
+.document-associations { display: grid; margin-top: 17px; gap: 8px; }
+.document-associations > strong { font-size: 0.76rem; }
+.document-associations > p { color: #9b3c36; font-size: 0.64rem; }
+.document-associations__save {
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  color: white;
+  background: var(--color-primary-dark);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.document-associations__save:disabled { cursor: default; opacity: 0.6; }
+.document-associations > a { color: var(--color-primary-dark); font-size: 0.68rem; font-weight: 800; text-align: center; }
 
 .document-upload-error {
   padding: 10px 12px;
@@ -508,6 +561,8 @@
   .documents-filters button,
   .document-upload-categories button,
   .document-upload-travelers button,
+  .document-upload-activities button,
+  .document-associations > div button,
   .document-card { transition-duration: 0.01ms; }
 
   .documents-loading i,

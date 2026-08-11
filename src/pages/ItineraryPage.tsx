@@ -6,9 +6,10 @@ import {
   useDragControls,
   useReducedMotion,
 } from 'motion/react'
-import { ChevronDown, ChevronUp, GripVertical, Plus, Save, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Check, ChevronDown, ChevronUp, FileText, GripVertical, Plus, Save, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 
+import { listDocuments, updateActivityDocuments, type ApiDocument, type ApiItineraryActivity } from '../api/documents'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import {
@@ -20,6 +21,55 @@ import {
   type CalendarDay,
 } from '../data/itinerary'
 import './ItineraryPage.css'
+
+const remoteCategoryLabels: Record<string, string> = {
+  atracao: 'Atração', comboio: 'Comboio', deslocamento: 'Deslocamento', hospedagem: 'Hospedagem',
+  passeio: 'Passeio', refeicao: 'Refeição', tempo_livre: 'Tempo livre', voo: 'Voo',
+}
+
+function mapRemoteItinerary(activities: ApiItineraryActivity[], documents: ApiDocument[]): CalendarDay[] {
+  const days = new Map<string, CalendarDay>()
+  for (const activity of activities) {
+    let day = days.get(activity.dayDate)
+    if (!day) {
+      const date = new Date(`${activity.dayDate}T12:00:00Z`)
+      day = {
+        date: date.getUTCDate(),
+        isoDate: activity.dayDate,
+        weekday: new Intl.DateTimeFormat('pt-PT', { weekday: 'short', timeZone: 'UTC' }).format(date).replace('.', ''),
+        month: new Intl.DateTimeFormat('pt-PT', { month: 'short', timeZone: 'UTC' }).format(date).replace('.', ''),
+        city: activity.city,
+        summary: '',
+        activities: [],
+        freeMinutes: 0,
+      }
+      days.set(activity.dayDate, day)
+    }
+    const isFreeSlot = activity.category === 'tempo_livre'
+    const start = activity.time?.split(':').map(Number)
+    const end = activity.endTime?.split(':').map(Number)
+    const durationMinutes = start && end ? (end[0] * 60 + end[1]) - (start[0] * 60 + start[1]) : undefined
+    day.activities.push({
+      id: activity.sourceKey ?? activity.id,
+      serverId: activity.id,
+      time: activity.time ?? 'A definir',
+      endTime: activity.endTime ?? undefined,
+      durationMinutes: durationMinutes && durationMinutes > 0 ? durationMinutes : undefined,
+      title: activity.title,
+      category: remoteCategoryLabels[activity.category] ?? activity.category,
+      address: activity.address ?? '',
+      note: activity.notes ?? undefined,
+      isFreeSlot,
+      isConfirmed: activity.status !== 'cancelled',
+      documentIds: documents.filter((document) => document.activityIds.includes(activity.id)).map((document) => document.id),
+    })
+  }
+  return [...days.values()].map((day) => {
+    day.freeMinutes = day.activities.filter((activity) => activity.isFreeSlot).reduce((sum, activity) => sum + (activity.durationMinutes ?? 0), 0)
+    day.summary = `${day.activities.length} atividades${day.freeMinutes ? ` · ${formatDuration(day.freeMinutes)} livres` : ''}`
+    return day
+  })
+}
 
 type DraggableActivityProps = {
   activity: CalendarActivity
@@ -119,17 +169,20 @@ function DraggableActivity({
 
 type ActivityEditorProps = {
   activity: CalendarActivity
+  documents: ApiDocument[]
   reduceMotion: boolean
   onClose: () => void
-  onSave: (activity: CalendarActivity) => void
+  onSave: (activity: CalendarActivity, documentIds: string[]) => Promise<void>
 }
 
-function ActivityEditor({ activity, reduceMotion, onClose, onSave }: ActivityEditorProps) {
+function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: ActivityEditorProps) {
   const [title, setTitle] = useState(activity.title)
   const [startTime, setStartTime] = useState(activity.time === 'A definir' ? '' : activity.time)
   const [endTime, setEndTime] = useState(activity.endTime ?? '')
   const [address, setAddress] = useState(activity.address)
   const [note, setNote] = useState(activity.note ?? '')
+  const [documentIds, setDocumentIds] = useState(activity.documentIds ?? [])
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle')
 
   return (
     <div className="itinerary-editor-layer" role="presentation">
@@ -154,14 +207,15 @@ function ActivityEditor({ activity, reduceMotion, onClose, onSave }: ActivityEdi
         transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
         onSubmit={(event) => {
           event.preventDefault()
-          onSave({
+          setSaveState('saving')
+          void onSave({
             ...activity,
             title: title.trim() || activity.title,
             time: startTime || 'A definir',
             endTime: endTime || undefined,
             address: address.trim(),
             note: note.trim() || undefined,
-          })
+          }, documentIds).catch(() => setSaveState('error'))
         }}
       >
         <span className="itinerary-editor__handle" aria-hidden="true" />
@@ -196,8 +250,37 @@ function ActivityEditor({ activity, reduceMotion, onClose, onSave }: ActivityEdi
           <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
         </label>
 
-        <p className="itinerary-editor__storage">As alterações ficam neste dispositivo até a sincronização com a NAS ser ativada.</p>
-        <button className="itinerary-editor__save" type="submit"><Save size={17} aria-hidden="true" />Guardar alterações</button>
+        {activity.serverId && (
+          <fieldset className="itinerary-editor__documents" disabled={saveState === 'saving'}>
+            <legend>Documentos ligados</legend>
+            {documents.length ? documents.map((document) => {
+              const isLinked = documentIds.includes(document.id)
+              return (
+                <div key={document.id}>
+                  <button
+                    type="button"
+                    className={isLinked ? 'is-selected' : ''}
+                    aria-pressed={isLinked}
+                    onClick={() => setDocumentIds((current) => current.includes(document.id)
+                      ? current.filter((id) => id !== document.id)
+                      : [...current, document.id])}
+                  >
+                    <FileText size={16} aria-hidden="true" />
+                    <span>{document.title}</span>
+                    {isLinked && <Check size={15} aria-hidden="true" />}
+                  </button>
+                  <Link to={`/more/documents?document=${document.id}`}>Abrir</Link>
+                </div>
+              )
+            }) : <p>Nenhum documento foi enviado para esta viagem.</p>}
+          </fieldset>
+        )}
+
+        {saveState === 'error' && <p className="itinerary-editor__error" role="alert">Não foi possível guardar as ligações.</p>}
+        <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>
+        <button className="itinerary-editor__save" type="submit" disabled={saveState === 'saving'}>
+          <Save size={17} aria-hidden="true" />{saveState === 'saving' ? 'A guardar…' : 'Guardar alterações'}
+        </button>
       </motion.form>
     </div>
   )
@@ -205,6 +288,7 @@ function ActivityEditor({ activity, reduceMotion, onClose, onSave }: ActivityEdi
 
 export default function ItineraryPage() {
   const reduceMotion = useReducedMotion()
+  const [searchParams] = useSearchParams()
   const scheduleSignature = JSON.stringify(tripDays.map((day) => [
     day.isoDate,
     day.activities.map((activity) => [activity.id, activity.title, activity.time, activity.endTime]),
@@ -219,6 +303,27 @@ export default function ItineraryPage() {
   })
   const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
+  const [documents, setDocuments] = useState<ApiDocument[]>([])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void listDocuments(controller.signal).then((payload) => {
+      const remoteDays = mapRemoteItinerary(payload.activities, payload.documents)
+      if (!remoteDays.length) return
+      setDocuments(payload.documents)
+      setDays(remoteDays)
+      const targetId = searchParams.get('activity')
+      if (targetId) {
+        const dayIndex = remoteDays.findIndex((day) => day.activities.some((activity) => activity.serverId === targetId))
+        const activity = dayIndex >= 0 ? remoteDays[dayIndex].activities.find((item) => item.serverId === targetId) : undefined
+        if (activity) {
+          setOpenDays((current) => current.includes(remoteDays[dayIndex].isoDate) ? current : [...current, remoteDays[dayIndex].isoDate])
+          setEditingActivity({ dayIndex, activity })
+        }
+      }
+    }).catch(() => undefined)
+    return () => controller.abort()
+  }, [searchParams])
 
   useEffect(() => {
     localStorage.setItem('voya:itinerary', JSON.stringify({ signature: scheduleSignature, days }))
@@ -254,7 +359,16 @@ export default function ItineraryPage() {
     )
   }
 
-  const saveActivity = (dayIndex: number, editedActivity: CalendarActivity) => {
+  const saveActivity = async (dayIndex: number, editedActivity: CalendarActivity, documentIds: string[]) => {
+    if (editedActivity.serverId) {
+      await updateActivityDocuments(editedActivity.serverId, documentIds)
+      setDocuments((current) => current.map((document) => ({
+        ...document,
+        activityIds: documentIds.includes(document.id)
+          ? [...new Set([...document.activityIds, editedActivity.serverId!])]
+          : document.activityIds.filter((id) => id !== editedActivity.serverId),
+      })))
+    }
     const toMinutes = (time?: string) => {
       if (!time || !/^\d{2}:\d{2}$/.test(time)) return undefined
       const [hours, minutes] = time.split(':').map(Number)
@@ -265,7 +379,7 @@ export default function ItineraryPage() {
     const durationMinutes = start !== undefined && end !== undefined && end > start
       ? end - start
       : undefined
-    const updatedActivity = { ...editedActivity, durationMinutes }
+    const updatedActivity = { ...editedActivity, durationMinutes, documentIds }
 
     setDays((current) => current.map((day, index) => {
       if (index !== dayIndex) return day
@@ -364,9 +478,10 @@ export default function ItineraryPage() {
           <ActivityEditor
             key={editingActivity.activity.id}
             activity={editingActivity.activity}
+            documents={documents}
             reduceMotion={Boolean(reduceMotion)}
             onClose={() => setEditingActivity(null)}
-            onSave={(activity) => saveActivity(editingActivity.dayIndex, activity)}
+            onSave={(activity, documentIds) => saveActivity(editingActivity.dayIndex, activity, documentIds)}
           />
         )}
       </ModalPortal>

@@ -421,6 +421,38 @@
   gap: 9px;
 }
 
+.itinerary-editor__documents {
+  display: grid;
+  padding: 0;
+  margin: 16px 0 0;
+  border: 0;
+  gap: 6px;
+}
+
+.itinerary-editor__documents legend { margin-bottom: 2px; color: var(--color-text); font-size: 0.7rem; font-weight: 800; }
+.itinerary-editor__documents > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
+.itinerary-editor__documents > div > button {
+  display: grid;
+  min-height: 45px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  background: white;
+  cursor: pointer;
+  gap: 7px;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+.itinerary-editor__documents > div > button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
+.itinerary-editor__documents > div > button span { overflow: hidden; font-size: 0.67rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.itinerary-editor__documents a { color: var(--color-primary-dark); font-size: 0.62rem; font-weight: 800; }
+.itinerary-editor__documents > p { color: var(--color-text-secondary); font-size: 0.65rem; }
+.itinerary-editor__error { padding: 9px 11px; margin-top: 12px; border-radius: 11px; color: #9b3c36; background: #fff0ee; font-size: 0.64rem; }
+.itinerary-editor__save:disabled { cursor: default; opacity: 0.6; }
+
 .itinerary-editor__storage {
   margin-top: 13px;
   color: var(--color-text-secondary);
@@ -449,6 +481,7 @@
   .itinerary-grip,
   .itinerary-move-actions button,
   .itinerary-free-action,
+  .itinerary-editor__documents > div > button,
   .itinerary-editor__save,
   .itinerary-add {
     transition-duration: 0.01ms;

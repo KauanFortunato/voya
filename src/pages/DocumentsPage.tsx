@@ -13,11 +13,18 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 
 import SubpageHeader from '../components/SubpageHeader'
 import ModalPortal from '../components/ModalPortal'
 import { useAuth } from '../auth/auth'
-import { listDocuments, uploadDocument, type ApiDocument } from '../api/documents'
+import {
+  listDocuments,
+  updateDocumentActivities,
+  uploadDocument,
+  type ApiDocument,
+  type ApiItineraryActivity,
+} from '../api/documents'
 import {
   documentCategories,
   documentSeed,
@@ -49,6 +56,7 @@ type UploadDraft = {
   title: string
   category: DocumentCategory
   travelerIds: TravelerId[]
+  activityIds: string[]
 }
 
 function inferDocumentTitle(filename: string) {
@@ -86,19 +94,25 @@ function mapApiDocument(document: ApiDocument): TripDocument {
     travelerIds: document.travelerIds.filter((id) => travelerIds.has(id)) as TripDocument['travelerIds'],
     fileName: document.originalFilename,
     fileUrl: `/api/documents/${document.id}/file`,
+    activityIds: document.activityIds,
     note: `Guardado na NAS · ${Math.max(1, Math.round(Number(document.fileSize) / 1024))} KB`,
   }
 }
 
 export default function DocumentsPage() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
   const reduceMotion = useReducedMotion()
   const fileInput = useRef<HTMLInputElement>(null)
+  const deepLinkOpened = useRef(false)
   const [remoteDocuments, setRemoteDocuments] = useState<TripDocument[]>([])
+  const [activities, setActivities] = useState<ApiItineraryActivity[]>([])
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
   const [selected, setSelected] = useState<TripDocument | null>(null)
   const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
   const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null)
+  const [associationDraft, setAssociationDraft] = useState<string[]>([])
+  const [associationState, setAssociationState] = useState<'idle' | 'saving' | 'error'>('idle')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [uploadState, setUploadState] = useState<{
@@ -115,6 +129,7 @@ export default function DocumentsPage() {
     try {
       const payload = await listDocuments(signal)
       setRemoteDocuments(payload.documents.map(mapApiDocument))
+      setActivities(payload.activities.filter((activity) => activity.category !== 'tempo_livre'))
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setLoadError(error instanceof Error ? error.message : 'Não foi possível carregar os documentos da NAS')
@@ -159,6 +174,7 @@ export default function DocumentsPage() {
       title: inferDocumentTitle(file.name),
       category: 'Outro',
       travelerIds: [userId as TravelerId],
+      activityIds: [],
     })
   }
 
@@ -178,6 +194,45 @@ export default function DocumentsPage() {
     })
   }
 
+  const toggleUploadActivity = (activityId: string) => {
+    setUploadDraft((current) => {
+      if (!current) return current
+      const activityIds = current.activityIds.includes(activityId)
+        ? current.activityIds.filter((id) => id !== activityId)
+        : [...current.activityIds, activityId]
+      return { ...current, activityIds }
+    })
+  }
+
+  const openDocument = (document: TripDocument) => {
+    setAssociationDraft(document.activityIds ?? [])
+    setAssociationState('idle')
+    setSelected(document)
+  }
+
+  useEffect(() => {
+    if (deepLinkOpened.current) return
+    const documentId = searchParams.get('document')
+    const document = remoteDocuments.find((item) => item.id === documentId)
+    if (!document) return
+    deepLinkOpened.current = true
+    openDocument(document)
+  }, [remoteDocuments, searchParams])
+
+  const saveDocumentActivities = async () => {
+    if (!selected || !remoteDocuments.some((document) => document.id === selected.id)) return
+    setAssociationState('saving')
+    try {
+      const result = await updateDocumentActivities(selected.id, associationDraft)
+      const updated = { ...selected, activityIds: result.activityIds }
+      setRemoteDocuments((current) => current.map((document) => document.id === selected.id ? updated : document))
+      setSelected(updated)
+      setAssociationState('idle')
+    } catch {
+      setAssociationState('error')
+    }
+  }
+
   const submitUpload = async (event: FormEvent) => {
     event.preventDefault()
     if (!uploadDraft || uploadState.status === 'uploading') return
@@ -192,6 +247,7 @@ export default function DocumentsPage() {
           title,
           category: uploadDraft.category,
           travelerIds: uploadDraft.travelerIds,
+          activityIds: uploadDraft.activityIds,
         },
         (progress) => setUploadState((current) => ({ ...current, progress })),
       )
@@ -199,7 +255,7 @@ export default function DocumentsPage() {
       setRemoteDocuments((current) => [document, ...current])
       setCategory('Todos')
       setUploadDraft(null)
-      setSelected(document)
+      openDocument(document)
       setUploadState({ status: 'success', progress: 100, message: 'Documento guardado na NAS.' })
     } catch (error) {
       setUploadState({
@@ -320,7 +376,7 @@ export default function DocumentsPage() {
               className="document-card"
               type="button"
               key={document.id}
-              onClick={() => setSelected(document)}
+              onClick={() => openDocument(document)}
             >
               <span className={`document-card__icon is-${document.status.toLowerCase().replace('ç', 'c')}`}>
                 <Icon size={20} strokeWidth={1.9} aria-hidden="true" />
@@ -433,6 +489,29 @@ export default function DocumentsPage() {
               </fieldset>
 
               <fieldset className="document-upload-field" disabled={uploadState.status === 'uploading'}>
+                <legend>Itens do roteiro <small>(opcional)</small></legend>
+                {activities.length ? (
+                  <div className="document-upload-activities">
+                    {activities.map((activity) => {
+                      const isSelected = uploadDraft.activityIds.includes(activity.id)
+                      return (
+                        <button
+                          type="button"
+                          key={activity.id}
+                          className={isSelected ? 'is-selected' : ''}
+                          aria-pressed={isSelected}
+                          onClick={() => toggleUploadActivity(activity.id)}
+                        >
+                          <span><strong>{activity.title}</strong><small>{activity.dayDate} · {activity.city}{activity.time ? ` · ${activity.time}` : ''}</small></span>
+                          {isSelected && <Check size={15} aria-hidden="true" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : <small className="document-upload-muted">Importe o roteiro para disponibilizar as atividades.</small>}
+              </fieldset>
+
+              <fieldset className="document-upload-field" disabled={uploadState.status === 'uploading'}>
                 <legend>Viajantes associados</legend>
                 <div className="document-upload-travelers">
                   {(Object.entries(travelers) as Array<[TravelerId, (typeof travelers)[TravelerId]]>).map(([id, traveler]) => {
@@ -528,6 +607,48 @@ export default function DocumentsPage() {
                   ))}
                 </div>
               </div>
+
+              {remoteDocuments.some((document) => document.id === selected.id) && (
+                <div className="document-associations">
+                  <strong>Ligado ao roteiro</strong>
+                  {activities.length ? (
+                    <div>
+                      {activities.map((activity) => {
+                        const isLinked = associationDraft.includes(activity.id)
+                        return (
+                          <button
+                            type="button"
+                            key={activity.id}
+                            className={isLinked ? 'is-selected' : ''}
+                            aria-pressed={isLinked}
+                            disabled={associationState === 'saving'}
+                            onClick={() => setAssociationDraft((current) => current.includes(activity.id)
+                              ? current.filter((id) => id !== activity.id)
+                              : [...current, activity.id])}
+                          >
+                            <span><b>{activity.title}</b><small>{activity.dayDate} · {activity.city}</small></span>
+                            {isLinked && <Check size={15} aria-hidden="true" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : <p>O roteiro ainda não foi importado para a NAS.</p>}
+                  {associationState === 'error' && <p role="alert">Não foi possível guardar as ligações.</p>}
+                  {activities.length > 0 && (
+                    <button
+                      className="document-associations__save"
+                      type="button"
+                      disabled={associationState === 'saving'}
+                      onClick={() => void saveDocumentActivities()}
+                    >
+                      {associationState === 'saving' ? 'A guardar…' : 'Guardar ligações'}
+                    </button>
+                  )}
+                  {associationDraft.length > 0 && (
+                    <Link to={`/itinerary?activity=${associationDraft[0]}`}>Ver no roteiro</Link>
+                  )}
+                </div>
+              )}
 
               {selected.note && <p className="document-sheet__note">{selected.note}</p>}
 

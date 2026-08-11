@@ -11,6 +11,8 @@ export type CalendarActivity = {
   note?: string
   isFreeSlot: boolean
   isConfirmed: boolean
+  serverId?: string
+  documentIds?: string[]
 }
 
 export type CalendarDay = {

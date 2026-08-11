@@ -23,6 +23,7 @@ export type TripDocument = {
   note?: string
   travelerRoles?: Partial<Record<TravelerId, string>>
   fileUrl?: string
+  activityIds?: string[]
 }
 
 export const travelers: Record<TravelerId, { name: string; initials: string }> = {

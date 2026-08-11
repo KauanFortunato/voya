@@ -10,6 +10,23 @@ export type ApiDocument = {
   fileSize: string | number
   createdAt: string
   travelerIds: string[]
+  activityIds: string[]
+}
+
+export type ApiItineraryActivity = {
+  id: string
+  sourceKey: string | null
+  title: string
+  category: string
+  dayDate: string
+  city: string
+  time: string | null
+  endTime: string | null
+  address: string | null
+  notes: string | null
+  status: 'planned' | 'current' | 'completed' | 'cancelled'
+  position: number
+  dayPosition: number
 }
 
 async function readError(response: Response) {
@@ -20,12 +37,16 @@ async function readError(response: Response) {
 export async function listDocuments(signal?: AbortSignal) {
   const response = await fetch('/api/documents', { signal })
   if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<{ trip: { id: string; title: string }; documents: ApiDocument[] }>
+  return response.json() as Promise<{
+    trip: { id: string; title: string }
+    documents: ApiDocument[]
+    activities: ApiItineraryActivity[]
+  }>
 }
 
 export function uploadDocument(
   file: File,
-  metadata: { title: string; category: string; travelerIds: string[] },
+  metadata: { title: string; category: string; travelerIds: string[]; activityIds: string[] },
   onProgress: (progress: number) => void,
 ) {
   return new Promise<ApiDocument>((resolve, reject) => {
@@ -34,6 +55,7 @@ export function uploadDocument(
     body.append('title', metadata.title)
     body.append('category', metadata.category)
     body.append('travelerIds', JSON.stringify(metadata.travelerIds))
+    body.append('activityIds', JSON.stringify(metadata.activityIds))
     body.append('file', file)
 
     request.open('POST', '/api/documents')
@@ -58,4 +80,24 @@ export function uploadDocument(
     request.addEventListener('abort', () => reject(new Error('O envio foi cancelado')))
     request.send(body)
   })
+}
+
+export async function updateDocumentActivities(documentId: string, ids: string[]) {
+  const response = await fetch(`/api/documents/${documentId}/activities`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<{ activityIds: string[] }>
+}
+
+export async function updateActivityDocuments(activityId: string, ids: string[]) {
+  const response = await fetch(`/api/activities/${activityId}/documents`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<{ documentIds: string[] }>
 }
