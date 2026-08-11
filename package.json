@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:api": "tsx --env-file=.env watch server/index.ts",
+    "dev:api": "tsx watch --env-file=.env server/index.ts",
     "build": "tsc -b && vite build",
     "db:provision": "tsx --env-file=.env server/db/provision.ts",
     "db:migrate": "tsx --env-file=.env server/db/migrate.ts",
