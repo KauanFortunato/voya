@@ -1,26 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ChevronRight, Plus, TrainFront } from 'lucide-react'
+import { ChevronRight, CircleAlert, Plus, TrainFront } from 'lucide-react'
 
+import { getRemoteItinerary } from '../api/itinerary'
 import IconButton from '../components/IconButton'
-import { tripDateLabel, tripDays } from '../data/itinerary'
+import { tripDateLabel, tripDays, type CalendarDay } from '../data/itinerary'
 import './CalendarPage.css'
 
 type CalendarMode = 'Dia' | 'Semana' | 'Mês'
 
 const modes: CalendarMode[] = ['Dia', 'Semana', 'Mês']
 type DayViewProps = {
+  days: CalendarDay[]
   selectedIsoDate: string
   onSelectDay: (isoDate: string) => void
 }
 
-function DayView({ selectedIsoDate, onSelectDay }: DayViewProps) {
-  const day = tripDays.find((item) => item.isoDate === selectedIsoDate) ?? tripDays[0]
+function DayView({ days, selectedIsoDate, onSelectDay }: DayViewProps) {
+  const day = days.find((item) => item.isoDate === selectedIsoDate) ?? days[0]
 
   return (
     <div className="calendar-view calendar-day-view">
-      <div className="week-strip" aria-label="Dias da viagem, de 17 a 26 de agosto">
-        {tripDays.map((item) => (
+      <div className="week-strip" aria-label={`${days.length} dias da viagem`}>
+        {days.map((item) => (
           <button
             className={`week-day${item.isoDate === day.isoDate ? ' is-selected' : ''}`}
             key={item.isoDate}
@@ -52,10 +54,10 @@ function DayView({ selectedIsoDate, onSelectDay }: DayViewProps) {
   )
 }
 
-function WeekView() {
+function WeekView({ days }: { days: CalendarDay[] }) {
   return (
     <div className="calendar-view calendar-week-view">
-      {tripDays.map((day) => (
+      {days.map((day) => (
         <article className="calendar-week-row" key={day.isoDate}>
           <span className="calendar-date-tile">{day.date}</span>
           <div>
@@ -74,57 +76,101 @@ function WeekView() {
   )
 }
 
-function MonthView() {
-  const cells = Array.from({ length: 42 }, (_, index) => index - 4)
+function MonthView({ days, selectedIsoDate, onSelectDay }: DayViewProps) {
+  const selectedDate = new Date(`${selectedIsoDate || days[0]?.isoDate}T12:00:00Z`)
+  const year = selectedDate.getUTCFullYear()
+  const month = selectedDate.getUTCMonth()
+  const firstWeekday = (new Date(Date.UTC(year, month, 1)).getUTCDay() + 6) % 7
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  const tripDates = new Set(days.map((day) => day.isoDate))
+  const importantDates = new Set(days.filter((day) => day.transport).map((day) => day.isoDate))
+  const cells = Array.from({ length: 42 }, (_, index) => index - firstWeekday + 1)
+  const monthLabel = new Intl.DateTimeFormat('pt-PT', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(selectedDate)
 
   return (
     <div className="calendar-view calendar-month-view">
       <div className="calendar-month-heading">
-        <h2>Agosto 2026</h2>
-        <span>10 dias de viagem</span>
+        <h2>{monthLabel}</h2>
+        <span>{days.length} {days.length === 1 ? 'dia' : 'dias'} de viagem</span>
       </div>
-      <div className="calendar-month-grid" aria-label="Agosto de 2026">
+      <div className="calendar-month-grid" aria-label={monthLabel}>
         {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((label, index) => (
           <span className="calendar-month-label" key={`${label}-${index}`}>{label}</span>
         ))}
         {cells.map((date, index) => {
-          const validDate = date > 0 && date <= 31
-          const inTrip = date >= 17 && date <= 26
-          const important = [17, 19, 21, 26].includes(date)
+          const validDate = date > 0 && date <= daysInMonth
+          const isoDate = validDate ? `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}` : ''
+          const inTrip = tripDates.has(isoDate)
+          const important = importantDates.has(isoDate)
           return (
             <button
-              className={`calendar-month-day${inTrip ? ' is-trip' : ''}${important ? ' is-important' : ''}`}
+              className={`calendar-month-day${inTrip ? ' is-trip' : ''}${important ? ' is-important' : ''}${isoDate === selectedIsoDate ? ' is-selected' : ''}`}
               key={index}
               type="button"
-              disabled={!validDate}
-              aria-label={validDate ? `${date} de agosto${inTrip ? ', durante a viagem' : ''}` : undefined}
+              disabled={!validDate || !inTrip}
+              aria-label={validDate ? `${date} de ${monthLabel}${inTrip ? ', durante a viagem' : ''}` : undefined}
+              onClick={() => inTrip && onSelectDay(isoDate)}
             >
               {validDate ? date : ''}
             </button>
           )
         })}
       </div>
-      <article className="calendar-milestone">
-        <TrainFront size={20} aria-hidden="true" />
-        <div>
-          <strong>19 agosto · Roma → Veneza</strong>
-          <p>Italo 8914 às 11:20</p>
-        </div>
-      </article>
+      {days.find((day) => day.transport) && (() => {
+        const milestone = days.find((day) => day.transport)!
+        return <article className="calendar-milestone"><TrainFront size={20} aria-hidden="true" /><div><strong>{milestone.date} {milestone.month} · {milestone.city}</strong><p>{milestone.transport}</p></div></article>
+      })()}
     </div>
   )
+}
+
+function CalendarSkeleton() {
+  return <div className="calendar-loading" role="status" aria-label="A carregar calendário"><span /><span /><span /><span /></div>
+}
+
+function calendarDateLabel(days: CalendarDay[]) {
+  if (!days.length) return tripDateLabel
+  const first = new Date(`${days[0].isoDate}T12:00:00Z`)
+  const last = new Date(`${days.at(-1)!.isoDate}T12:00:00Z`)
+  return new Intl.DateTimeFormat('pt-PT', { day: 'numeric', month: 'long', timeZone: 'UTC' }).formatRange(first, last)
 }
 
 export default function CalendarPage() {
   const [mode, setMode] = useState<CalendarMode>('Dia')
   const [selectedIsoDate, setSelectedIsoDate] = useState(tripDays[0]?.isoDate ?? '')
+  const [days, setDays] = useState<CalendarDay[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const reduceMotion = useReducedMotion()
+
+  const load = (signal?: AbortSignal) => {
+    setLoading(true)
+    setError('')
+    void getRemoteItinerary(signal).then((payload) => {
+      if (!payload.days.length) throw new Error('O roteiro ainda não possui dias.')
+      setDays(payload.days)
+      setSelectedIsoDate((current) => payload.days.some((day) => day.isoDate === current) ? current : payload.days[0].isoDate)
+    }).catch((reason: unknown) => {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return
+      setError(reason instanceof Error ? reason.message : 'Não foi possível carregar o calendário.')
+    }).finally(() => {
+      if (!signal?.aborted) setLoading(false)
+    })
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [])
+
+  const dateLabel = useMemo(() => calendarDateLabel(days), [days])
 
   return (
     <main className="calendar-page" id="main-content">
       <header className="calendar-header">
         <div>
-          <p>{tripDateLabel}</p>
+          <p>{dateLabel}</p>
           <h1>Calendário</h1>
         </div>
         <IconButton icon={Plus} ariaLabel="Adicionar evento" />
@@ -145,7 +191,11 @@ export default function CalendarPage() {
         ))}
       </div>
 
+      {loading && !days.length && <CalendarSkeleton />}
+      {error && !days.length && <section className="calendar-error" role="alert"><CircleAlert size={22} /><strong>Não foi possível abrir o calendário</strong><span>{error}</span><button type="button" onClick={() => load()}>Tentar novamente</button></section>}
+
       <AnimatePresence mode="wait" initial={false}>
+        {days.length > 0 && (
         <motion.div
           key={mode}
           initial={reduceMotion ? false : { opacity: 0, y: 5 }}
@@ -153,10 +203,11 @@ export default function CalendarPage() {
           exit={reduceMotion ? undefined : { opacity: 0, y: -3 }}
           transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
         >
-          {mode === 'Dia' && <DayView selectedIsoDate={selectedIsoDate} onSelectDay={setSelectedIsoDate} />}
-          {mode === 'Semana' && <WeekView />}
-          {mode === 'Mês' && <MonthView />}
+          {mode === 'Dia' && <DayView days={days} selectedIsoDate={selectedIsoDate} onSelectDay={setSelectedIsoDate} />}
+          {mode === 'Semana' && <WeekView days={days} />}
+          {mode === 'Mês' && <MonthView days={days} selectedIsoDate={selectedIsoDate} onSelectDay={setSelectedIsoDate} />}
         </motion.div>
+        )}
       </AnimatePresence>
     </main>
   )
