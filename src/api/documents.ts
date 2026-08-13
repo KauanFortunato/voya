@@ -26,6 +26,8 @@ export type ApiItineraryActivity = {
   notes: string | null
   status: 'planned' | 'current' | 'completed' | 'cancelled'
   isImportant: boolean
+  reminderLeadMinutes: 15 | 30 | 60 | 1440 | null
+  reminderRecipientIds: string[]
   position: number
   dayPosition: number
 }

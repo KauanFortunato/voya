@@ -41,6 +41,8 @@ export function mapRemoteItinerary(activities: ApiItineraryActivity[], documents
       isFreeSlot,
       isConfirmed: activity.status !== 'cancelled',
       isImportant: activity.isImportant,
+      reminderLeadMinutes: activity.reminderLeadMinutes ?? undefined,
+      reminderRecipientIds: activity.reminderRecipientIds,
       categoryKey: activity.category,
       documentIds: documents.filter((document) => document.activityIds.includes(activity.id)).map((document) => document.id),
     })
@@ -63,6 +65,8 @@ export type ActivityInput = {
   address: string
   notes: string
   isImportant: boolean
+  reminderLeadMinutes: 15 | 30 | 60 | 1440 | null
+  reminderRecipientIds: string[]
 }
 
 async function saveActivityRequest(path: string, method: 'POST' | 'PUT', input: ActivityInput) {
