@@ -17,6 +17,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Melhorado
 
+- Fluxo de entrega separado entre imagem de validação `develop` e imagem estável `latest`.
 - Estados de carregamento, vazio, erro e sucesso nos fluxos principais.
 - Transições da navegação, onboarding, seletor de dias e skeleton da tela Hoje.
 - Acessibilidade de movimento com suporte a `prefers-reduced-motion`.

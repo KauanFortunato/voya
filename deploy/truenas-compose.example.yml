@@ -1,5 +1,6 @@
 services:
   voya:
+    # Use :develop apenas no ambiente de validação; produção estável usa :latest.
     image: ghcr.io/kauanfortunato/voya:latest
     container_name: voya
     user: "568:568"

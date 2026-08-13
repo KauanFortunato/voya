@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - "feat/**"
+      - develop
   workflow_dispatch:
 
 permissions:
@@ -28,13 +28,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Define container tags
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/kauanfortunato/voya
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=sha
+
       - name: Build and publish
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ghcr.io/kauanfortunato/voya:latest
-            ghcr.io/kauanfortunato/voya:${{ github.sha }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
