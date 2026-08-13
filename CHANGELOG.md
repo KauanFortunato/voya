@@ -18,11 +18,13 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Preferências pessoais de lembrete, com ativação por perfil e antecedência padrão de 15 min, 30 min, 1 hora ou 1 dia.
 - Configuração de lembrete por atividade importante, com antecedência própria e seleção de destinatários da viagem.
 - Jobs persistentes de lembrete com agendamento idempotente, cancelamento e reagendamento automático.
+- Central de configurações com estado dos lembretes, próximo aviso, preferências pessoais e situação do dispositivo.
 
 ### Melhorado
 
 - Fluxo de entrega separado entre imagem de validação `develop` e imagem estável `latest`.
 - Inicialização do container aplica migrations pendentes antes de subir a API.
+- Navegação entre Configurações e o perfil de viajantes preserva o destino correto do botão voltar.
 - Estados de carregamento, vazio, erro e sucesso nos fluxos principais.
 - Transições da navegação, onboarding, seletor de dias e skeleton da tela Hoje.
 - Acessibilidade de movimento com suporte a `prefers-reduced-motion`.
