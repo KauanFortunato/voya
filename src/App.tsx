@@ -1,122 +1,165 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { lazy, Suspense, useEffect } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import {
+  CalendarDays,
+  House,
+  MapPinned,
+  MoreHorizontal,
+  Route as RouteIcon,
+} from 'lucide-react'
+import {
+  HashRouter,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom'
+
+import ScreenSkeleton from './components/ScreenSkeleton'
+import { AuthProvider } from './auth/AuthContext'
+import { useAuth } from './auth/auth'
+import TodayPage from './pages/TodayPage'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const CalendarPage = lazy(() => import('./pages/CalendarPage'))
+const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
+const PlacesPage = lazy(() => import('./pages/PlacesPage'))
+const MorePage = lazy(() => import('./pages/MorePage'))
+const OverviewPage = lazy(() => import('./pages/OverviewPage'))
+const ChecklistPage = lazy(() => import('./pages/ChecklistPage'))
+const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
+const TravelersPage = lazy(() => import('./pages/TravelersPage'))
+const BudgetPage = lazy(() => import('./pages/BudgetPage'))
+const SectionPage = lazy(() => import('./pages/SectionPage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+
+const navigation = [
+  { to: '/today', label: 'Hoje', icon: House },
+  { to: '/calendar', label: 'Calendário', icon: CalendarDays },
+  { to: '/itinerary', label: 'Roteiro', icon: RouteIcon },
+  { to: '/places', label: 'Lugares', icon: MapPinned },
+  { to: '/more', label: 'Mais', icon: MoreHorizontal },
+]
+
+const primaryPaths = new Set(navigation.map(({ to }) => to))
+const scrollPositions = new Map<string, number>()
+
+function ScrollPositionManager() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    const previousRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+
+    return () => {
+      window.history.scrollRestoration = previousRestoration
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (primaryPaths.has(pathname)) scrollPositions.set(pathname, window.scrollY)
+    }
+  }, [pathname])
+
+  return null
+}
+
+function BottomNavigation() {
+  return (
+    <nav className="bottom-navigation" aria-label="Navegação principal">
+      {navigation.map(({ to, label, icon: Icon }) => (
+        <NavLink
+          key={to}
+          to={to}
+          className={({ isActive }) =>
+            `bottom-navigation__item${isActive ? ' is-active' : ''}`
+          }
+        >
+          <Icon aria-hidden="true" size={21} strokeWidth={1.9} />
+          <span>{label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  )
+}
+
+function AnimatedRoutes() {
+  const location = useLocation()
+  const reduceMotion = useReducedMotion()
+  const restoreDestinationScroll = () => {
+    const targetPosition = primaryPaths.has(location.pathname)
+      ? (scrollPositions.get(location.pathname) ?? 0)
+      : 0
+    window.scrollTo({ top: targetPosition, behavior: 'auto' })
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    <AnimatePresence mode="wait" initial={false} onExitComplete={restoreDestinationScroll}>
+      <motion.div
+        className="route-stage"
+        key={location.pathname}
+        initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
+        transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+      >
+        <Suspense fallback={<ScreenSkeleton />}>
+          <Routes location={location}>
+            <Route path="/" element={<Navigate to="/today" replace />} />
+            <Route path="/today" element={<TodayPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/itinerary" element={<ItineraryPage />} />
+            <Route path="/places" element={<PlacesPage />} />
+            <Route path="/more" element={<MorePage />} />
+            <Route path="/more/overview" element={<OverviewPage />} />
+            <Route path="/more/checklist" element={<ChecklistPage />} />
+            <Route path="/more/documents" element={<DocumentsPage />} />
+            <Route path="/more/budget" element={<BudgetPage />} />
+            <Route path="/more/travelers" element={<TravelersPage />} />
+            <Route path="/more/settings" element={<SectionPage kicker="Voya" title="Configurações" />} />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Routes>
+        </Suspense>
+      </motion.div>
+    </AnimatePresence>
   )
+}
+
+function AppShell() {
+  const { pathname } = useLocation()
+  const isMoreSubpage = pathname.startsWith('/more/')
+
+  return (
+    <div className={`app-shell${isMoreSubpage ? ' has-subpage' : ''}`}>
+      <a className="skip-link" href="#main-content">
+        Ir para o conteúdo
+      </a>
+      <ScrollPositionManager />
+      <AnimatedRoutes />
+      {!isMoreSubpage && <BottomNavigation />}
+    </div>
+  )
+}
+
+function AuthenticatedApp() {
+  const { status } = useAuth()
+
+  if (status === 'loading') return <div className="app-shell"><ScreenSkeleton /></div>
+  if (status === 'anonymous') {
+    return <Suspense fallback={<div className="app-shell"><ScreenSkeleton /></div>}><LoginPage /></Suspense>
+  }
+
+  return (
+    <HashRouter>
+      <AppShell />
+    </HashRouter>
+  )
+}
+
+function App() {
+  return <AuthProvider><AuthenticatedApp /></AuthProvider>
 }
 
 export default App

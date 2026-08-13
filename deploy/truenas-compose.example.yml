@@ -1,0 +1,24 @@
+services:
+  voya:
+    image: ghcr.io/kauanfortunato/voya:latest
+    container_name: voya
+    user: "568:568"
+    restart: unless-stopped
+    ports:
+      - "3080:3333"
+    environment:
+      DATABASE_URL: "postgresql://voya_app:SUBSTITUA_A_SENHA@192.168.1.89:5432/voya"
+      VOYA_API_HOST: "0.0.0.0"
+      VOYA_API_PORT: "3333"
+      VOYA_DOCUMENTS_PATH: "/data/documents"
+      VOYA_MAX_DOCUMENT_SIZE_MB: "25"
+      VOYA_WEB_ROOT: "/app/dist"
+    volumes:
+      - /mnt/media/voya-data/documents:/data/documents
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

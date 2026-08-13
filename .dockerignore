@@ -1,0 +1,13 @@
+.data
+.env
+.env.*
+!.env.example
+.git
+.github
+dist
+node_modules
+PLAN.md
+AGENT.md
+AGENTS.md
+public/trip-documents
+src/data/private-trip.json

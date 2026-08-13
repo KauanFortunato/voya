@@ -10,7 +10,18 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.data/
 *.local
+.env
+.env.*
+!.env.example
+src/data/private-trip.json
+public/trip-documents/
+
+# Local agent instructions and implementation planning
+AGENT.md
+AGENTS.md
+PLAN.md
 
 # Editor directories and files
 .vscode/*

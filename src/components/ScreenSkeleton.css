@@ -1,0 +1,95 @@
+.screen-skeleton {
+  min-height: 100dvh;
+  padding: 24px 16px 100px;
+}
+
+.screen-skeleton__header {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.screen-skeleton__header > div {
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line,
+.skeleton-circle,
+.skeleton-block {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #e5f1fa;
+}
+
+.skeleton-line::after,
+.skeleton-circle::after,
+.skeleton-block::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 75%) 50%, transparent 80%);
+  content: '';
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.35s linear infinite;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 8px;
+}
+
+.skeleton-line--short {
+  width: 124px;
+}
+
+.skeleton-line--title {
+  width: 230px;
+  height: 29px;
+}
+
+.skeleton-line--section {
+  width: 110px;
+  height: 21px;
+  margin: 26px 0 12px;
+}
+
+.skeleton-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.skeleton-block {
+  border-radius: 20px;
+}
+
+.skeleton-block--hero {
+  height: 300px;
+}
+
+.skeleton-block--summary {
+  height: 76px;
+  margin-top: 14px;
+}
+
+.skeleton-block--card {
+  height: 104px;
+  margin-bottom: 12px;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-line::after,
+  .skeleton-circle::after,
+  .skeleton-block::after {
+    display: none;
+  }
+}
