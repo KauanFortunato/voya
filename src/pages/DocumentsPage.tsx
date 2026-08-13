@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Link2,
   Plane,
   Share2,
   ShieldCheck,
@@ -119,6 +120,7 @@ export default function DocumentsPage() {
   const reduceMotion = useReducedMotion()
   const fileInput = useRef<HTMLInputElement>(null)
   const deepLinkOpened = useRef(false)
+  const documentOverlayEntry = useRef(false)
   const [remoteDocuments, setRemoteDocuments] = useState<TripDocument[]>([])
   const [activities, setActivities] = useState<ApiItineraryActivity[]>([])
   const [category, setCategory] = useState<(typeof documentCategories)[number]>('Todos')
@@ -128,6 +130,7 @@ export default function DocumentsPage() {
   const [viewer, setViewer] = useState<{ title: string; source: string; mimeType?: string; temporary: boolean } | null>(null)
   const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null)
   const [associationDraft, setAssociationDraft] = useState<string[]>([])
+  const [associationsOpen, setAssociationsOpen] = useState(false)
   const [associationState, setAssociationState] = useState<'idle' | 'saving' | 'error'>('idle')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -266,13 +269,23 @@ export default function DocumentsPage() {
     })
   }
 
-  const openDocument = (document: TripDocument) => {
+  const registerDocumentOverlay = useCallback((overlay: 'details' | 'delete' | 'viewer', replace = false) => {
+    const state = { ...window.history.state, voyaDocumentOverlay: overlay }
+    const hasCurrentEntry = documentOverlayEntry.current && Boolean(window.history.state?.voyaDocumentOverlay)
+    if (replace || hasCurrentEntry) window.history.replaceState(state, '', window.location.href)
+    else window.history.pushState(state, '', window.location.href)
+    documentOverlayEntry.current = true
+  }, [])
+
+  const openDocument = useCallback((document: TripDocument, addHistoryEntry = true) => {
+    if (addHistoryEntry) registerDocumentOverlay('details')
     preparedShare.current = null
     setShareState({ status: 'idle', progress: null, message: '' })
     setAssociationDraft(document.activityIds ?? [])
     setAssociationState('idle')
+    setAssociationsOpen(false)
     setSelected(document)
-  }
+  }, [registerDocumentOverlay])
 
   useEffect(() => {
     if (deepLinkOpened.current) return
@@ -281,7 +294,7 @@ export default function DocumentsPage() {
     if (!document) return
     deepLinkOpened.current = true
     openDocument(document)
-  }, [remoteDocuments, searchParams])
+  }, [openDocument, remoteDocuments, searchParams])
 
   const saveDocumentActivities = async () => {
     if (!selected || !remoteDocuments.some((document) => document.id === selected.id)) return
@@ -298,6 +311,7 @@ export default function DocumentsPage() {
   }
 
   const requestDocumentDeletion = (document: TripDocument) => {
+    registerDocumentOverlay('delete', true)
     setSelected(null)
     setDeleteState('idle')
     setDeleteConfirm(document)
@@ -307,7 +321,8 @@ export default function DocumentsPage() {
     if (deleteState === 'deleting' || !deleteConfirm) return
     const document = deleteConfirm
     setDeleteConfirm(null)
-    openDocument(document)
+    registerDocumentOverlay('details', true)
+    openDocument(document, false)
   }
 
   const confirmDocumentDeletion = async () => {
@@ -320,6 +335,8 @@ export default function DocumentsPage() {
       setDeleteConfirm(null)
       setDeleteState('idle')
       setUploadState({ status: 'success', progress: 100, message: 'Documento apagado da NAS.' })
+      if (documentOverlayEntry.current && window.history.state?.voyaDocumentOverlay) window.history.back()
+      else documentOverlayEntry.current = false
     } catch {
       setDeleteState('error')
     }
@@ -358,17 +375,22 @@ export default function DocumentsPage() {
     }
   }
 
+  const presentViewer = useCallback((nextViewer: NonNullable<typeof viewer>) => {
+    registerDocumentOverlay('viewer', true)
+    setViewer(nextViewer)
+  }, [registerDocumentOverlay])
+
   const openFile = async (document: TripDocument) => {
     if (document.localFile) {
       const url = URL.createObjectURL(document.localFile)
       setSelected(null)
-      setViewer({ title: document.title, source: url, mimeType: document.localFile.type, temporary: true })
+      presentViewer({ title: document.title, source: url, mimeType: document.localFile.type, temporary: true })
       return
     }
     if (document.fileUrl) {
       const offlineUrl = await getOfflineDocumentUrl(document.fileUrl).catch(() => null)
       setSelected(null)
-      setViewer({
+      presentViewer({
         title: document.title,
         source: offlineUrl ?? document.fileUrl,
         mimeType: document.mimeType,
@@ -485,10 +507,35 @@ export default function DocumentsPage() {
     }
   }
 
-  const closeViewer = () => {
-    if (viewer?.temporary) URL.revokeObjectURL(viewer.source)
-    setViewer(null)
-  }
+  const disposeViewer = useCallback(() => {
+    setViewer((current) => {
+      if (current?.temporary) URL.revokeObjectURL(current.source)
+      return null
+    })
+  }, [])
+
+  const closeDocumentOverlay = useCallback(() => {
+    if (documentOverlayEntry.current && window.history.state?.voyaDocumentOverlay) {
+      window.history.back()
+      return
+    }
+    documentOverlayEntry.current = false
+    setSelected(null)
+    setDeleteConfirm(null)
+    disposeViewer()
+  }, [disposeViewer])
+
+  useEffect(() => {
+    const closeFromHistory = () => {
+      if (!documentOverlayEntry.current) return
+      documentOverlayEntry.current = false
+      setSelected(null)
+      setDeleteConfirm(null)
+      disposeViewer()
+    }
+    window.addEventListener('popstate', closeFromHistory)
+    return () => window.removeEventListener('popstate', closeFromHistory)
+  }, [disposeViewer])
 
   return (
     <main className="documents-page" id="main-content">
@@ -764,14 +811,14 @@ export default function DocumentsPage() {
         )}
       </ModalPortal>
 
-      <ModalPortal open={Boolean(selected)} onClose={() => setSelected(null)}>
+      <ModalPortal open={Boolean(selected)} onClose={closeDocumentOverlay}>
         {selected && (
           <div className="document-sheet-layer" role="presentation">
             <motion.button
               className="document-sheet-backdrop"
               type="button"
               aria-label="Fechar detalhes"
-              onClick={() => setSelected(null)}
+              onClick={closeDocumentOverlay}
               initial={reduceMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={reduceMotion ? undefined : { opacity: 0 }}
@@ -788,7 +835,7 @@ export default function DocumentsPage() {
               transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
             >
               <span className="document-sheet__handle" aria-hidden="true" />
-              <button className="document-sheet__close" type="button" aria-label="Fechar" onClick={() => setSelected(null)}>
+              <button className="document-sheet__close" type="button" aria-label="Fechar" onClick={closeDocumentOverlay}>
                 <X size={19} aria-hidden="true" />
               </button>
               <span className="document-sheet__eyebrow">{selected.category}</span>
@@ -816,43 +863,68 @@ export default function DocumentsPage() {
 
               {remoteDocuments.some((document) => document.id === selected.id) && (
                 <div className="document-associations">
-                  <strong>Ligado ao roteiro</strong>
-                  {activities.length ? (
-                    <div>
-                      {activities.map((activity) => {
-                        const isLinked = associationDraft.includes(activity.id)
-                        return (
-                          <button
-                            type="button"
-                            key={activity.id}
-                            className={isLinked ? 'is-selected' : ''}
-                            aria-pressed={isLinked}
-                            disabled={associationState === 'saving'}
-                            onClick={() => setAssociationDraft((current) => current.includes(activity.id)
-                              ? current.filter((id) => id !== activity.id)
-                              : [...current, activity.id])}
-                          >
-                            <span><b>{activity.title}</b><small>{activity.dayDate} · {activity.city}</small></span>
-                            {isLinked && <Check size={15} aria-hidden="true" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ) : <p>O roteiro ainda não foi importado para a NAS.</p>}
-                  {associationState === 'error' && <p role="alert">Não foi possível guardar as ligações.</p>}
-                  {activities.length > 0 && (
-                    <button
-                      className="document-associations__save"
-                      type="button"
-                      disabled={associationState === 'saving'}
-                      aria-busy={associationState === 'saving'}
-                      onClick={() => void saveDocumentActivities()}
+                  <button
+                    className="document-associations__toggle"
+                    type="button"
+                    aria-expanded={associationsOpen}
+                    aria-controls="document-associations-editor"
+                    onClick={() => setAssociationsOpen((current) => !current)}
+                  >
+                    <span className="document-associations__icon"><Link2 size={17} aria-hidden="true" /></span>
+                    <span>
+                      <strong>Ligar ao roteiro</strong>
+                      <small>{selected.activityIds?.length
+                        ? `${selected.activityIds.length} ${selected.activityIds.length === 1 ? 'item ligado' : 'itens ligados'}`
+                        : 'Opcional'}</small>
+                    </span>
+                    <ChevronRight className={associationsOpen ? 'is-open' : ''} size={18} aria-hidden="true" />
+                  </button>
+                  {associationsOpen && (
+                    <motion.div
+                      className="document-associations__editor"
+                      id="document-associations-editor"
+                      initial={reduceMotion ? false : { opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
                     >
-                      {associationState === 'saving' ? 'A guardar…' : 'Guardar ligações'}
-                    </button>
-                  )}
-                  {associationDraft.length > 0 && (
-                    <Link to={`/itinerary?activity=${associationDraft[0]}`}>Ver no roteiro</Link>
+                      {activities.length ? (
+                        <div className="document-associations__list">
+                          {activities.map((activity) => {
+                            const isLinked = associationDraft.includes(activity.id)
+                            return (
+                              <button
+                                type="button"
+                                key={activity.id}
+                                className={isLinked ? 'is-selected' : ''}
+                                aria-pressed={isLinked}
+                                disabled={associationState === 'saving'}
+                                onClick={() => setAssociationDraft((current) => current.includes(activity.id)
+                                  ? current.filter((id) => id !== activity.id)
+                                  : [...current, activity.id])}
+                              >
+                                <span><b>{activity.title}</b><small>{activity.dayDate} · {activity.city}</small></span>
+                                {isLinked && <Check size={15} aria-hidden="true" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : <p>O roteiro ainda não foi importado para a NAS.</p>}
+                      {associationState === 'error' && <p role="alert">Não foi possível guardar as ligações.</p>}
+                      {activities.length > 0 && (
+                        <button
+                          className="document-associations__save"
+                          type="button"
+                          disabled={associationState === 'saving'}
+                          aria-busy={associationState === 'saving'}
+                          onClick={() => void saveDocumentActivities()}
+                        >
+                          {associationState === 'saving' ? 'A guardar…' : 'Guardar ligações'}
+                        </button>
+                      )}
+                      {associationDraft.length > 0 && (
+                        <Link to={`/itinerary?activity=${associationDraft[0]}`}>Ver no roteiro</Link>
+                      )}
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -983,10 +1055,10 @@ export default function DocumentsPage() {
         )}
       </ModalPortal>
 
-      <ModalPortal open={Boolean(viewer)} onClose={closeViewer}>
+      <ModalPortal open={Boolean(viewer)} onClose={closeDocumentOverlay}>
         {viewer && (
           <Suspense fallback={<div className="pdf-viewer-lazy" role="status">A preparar visualizador…</div>}>
-            <PdfViewer title={viewer.title} source={viewer.source} mimeType={viewer.mimeType} onClose={closeViewer} />
+            <PdfViewer title={viewer.title} source={viewer.source} mimeType={viewer.mimeType} onClose={closeDocumentOverlay} />
           </Suspense>
         )}
       </ModalPortal>
