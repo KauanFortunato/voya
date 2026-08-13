@@ -41,7 +41,22 @@ function greeting() {
 }
 
 function TodaySkeleton() {
-  return <div className="today-loading" role="status" aria-label="A carregar o seu dia"><span className="today-loading__header" /><span className="today-loading__hero" /><span className="today-loading__summary" /><span className="today-loading__row" /><span className="today-loading__row" /></div>
+  return (
+    <div className="today-loading" role="status" aria-label="A carregar o seu dia">
+      <div className="today-loading__header">
+        <span className="today-loading__logo" />
+        <span className="today-loading__trip" />
+        <span className="today-loading__title" />
+        <span className="today-loading__notification" />
+      </div>
+      <span className="today-loading__picker" />
+      <span className="today-loading__hero" />
+      <span className="today-loading__summary" />
+      <span className="today-loading__section" />
+      <span className="today-loading__row" />
+      <span className="today-loading__row" />
+    </div>
+  )
 }
 
 function ActivityDetails({ activity, onClose }: { activity: TodayActivity; onClose: () => void }) {
@@ -125,9 +140,25 @@ export default function TodayPage() {
   return (
     <>
       <main className="today-page" id="main-content">
-        {loading && !data && <TodaySkeleton />}
-        {error && !data && <section className="today-error" role="alert"><CircleAlert size={24} /><strong>Não foi possível abrir o seu dia</strong><span>{error}</span><button type="button" onClick={() => void load()}><RefreshCw size={15} />Tentar novamente</button></section>}
-        {data && <>
+        <AnimatePresence mode="sync" initial={false}>
+        {loading && !data && (
+          <motion.div
+            className="today-initial-view"
+            key="today-loading"
+            exit={reduceMotion ? undefined : { opacity: 0, filter: 'blur(1px)' }}
+            transition={{ duration: 0.14 }}
+          >
+            <TodaySkeleton />
+          </motion.div>
+        )}
+        {error && !data && <motion.section className="today-error today-initial-view" key="today-error" role="alert" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}><CircleAlert size={24} /><strong>Não foi possível abrir o seu dia</strong><span>{error}</span><button type="button" onClick={() => void load()}><RefreshCw size={15} />Tentar novamente</button></motion.section>}
+        {data && <motion.div
+          className="today-initial-view"
+          key="today-content"
+          initial={reduceMotion ? false : { opacity: 0, filter: 'blur(1px)' }}
+          animate={{ opacity: 1, filter: 'blur(0px)' }}
+          transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
+        >
           <header className="today-header"><div className="header-info"><img className="today-brand-logo" src={voyaLogo} alt="Voya" /><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
           <AnimatePresence mode="popLayout" initial={false} custom={dayDirection}>
             <motion.div
@@ -161,7 +192,8 @@ export default function TodayPage() {
           </section>
             </motion.div>
           </AnimatePresence>
-        </>}
+        </motion.div>}
+        </AnimatePresence>
       </main>
       <ModalPortal open={Boolean(selectedActivity)} onClose={() => setSelectedActivity(null)}>{selectedActivity && <ActivityDetails activity={selectedActivity} onClose={() => setSelectedActivity(null)} />}</ModalPortal>
     </>

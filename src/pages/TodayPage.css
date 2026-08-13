@@ -1,7 +1,10 @@
 .today-page {
+  display: grid;
   min-height: 100dvh;
   padding: 24px 16px 106px;
 }
+
+.today-initial-view { grid-area: 1 / 1; align-self: start; }
 
 .today-header {
   display: flex;
@@ -611,17 +614,24 @@
 .today-error { min-height: calc(100dvh - 130px); }
 .today-error button { display: inline-flex; min-height: 40px; align-items: center; padding: 0 12px; margin-top: 14px; border: 0; border-radius: 11px; color: white; background: var(--color-primary-dark); font-size: 0.68rem; font-weight: 800; cursor: pointer; gap: 6px; }
 
-.today-loading { display: grid; gap: 12px; }
-.today-loading > span { display: block; border-radius: 18px; background: linear-gradient(100deg, #e7f0f7 30%, white 48%, #e7f0f7 66%); background-size: 240% 100%; animation: today-shimmer 1.2s linear infinite; }
-.today-loading__header { height: 74px; }
+.today-loading { display: grid; }
+.today-loading span { position: relative; display: block; overflow: hidden; background: #e5f1fa; }
+.today-loading span::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 75%) 50%, transparent 80%); content: ''; transform: translateX(-100%); animation: today-shimmer 1.35s linear infinite; }
+.today-loading__header { position: relative; min-height: 58px; margin-bottom: 14px; }
+.today-loading__logo { width: 96px; height: 37px; border-radius: 8px; }
+.today-loading__trip { width: 126px; height: 12px; margin-top: 4px; border-radius: 7px; }
+.today-loading__title { width: min(245px, calc(100% - 58px)); height: 30px; margin-top: 5px; border-radius: 9px; }
+.today-loading__notification { position: absolute !important; top: 7px; right: 0; width: 42px; height: 42px; border-radius: 50%; }
+.today-loading__picker { height: 58px; margin-bottom: 12px; border-radius: 17px; }
 .today-loading__hero { height: 310px; }
-.today-loading__summary { height: 76px; }
-.today-loading__row { height: 112px; }
+.today-loading__summary { height: 76px; margin-top: 14px; border-radius: 17px; }
+.today-loading__section { width: 148px; height: 22px; margin: 26px 0 12px; border-radius: 8px; }
+.today-loading__row { height: 112px; margin: 0 0 12px 40px; border-radius: 16px; }
 
-@keyframes today-shimmer { to { background-position: -160% 0; } }
+@keyframes today-shimmer { to { transform: translateX(100%); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .today-loading > span { animation: none; }
+  .today-loading span::after { display: none; }
   .today-refreshing { width: 100%; transform: none; animation: none; }
   .timeline-item__marker,
   .timeline-card,

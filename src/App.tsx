@@ -19,9 +19,9 @@ import {
 import ScreenSkeleton from './components/ScreenSkeleton'
 import { AuthProvider } from './auth/AuthContext'
 import { useAuth } from './auth/auth'
+import TodayPage from './pages/TodayPage'
 import './App.css'
 
-const TodayPage = lazy(() => import('./pages/TodayPage'))
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
 const PlacesPage = lazy(() => import('./pages/PlacesPage'))
