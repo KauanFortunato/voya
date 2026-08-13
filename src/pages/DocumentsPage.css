@@ -487,25 +487,26 @@
 .document-associations { display: grid; margin-top: 17px; gap: 8px; }
 .document-associations__toggle {
   display: grid;
-  min-height: 54px;
+  min-height: 76px;
   align-items: center;
-  padding: 8px 10px;
+  padding: 10px 12px 10px 10px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 16px;
   color: var(--color-text);
   text-align: left;
-  background: white;
-  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+  background: linear-gradient(135deg, white, #f2f8fe);
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 10%), 0 5px 14px rgb(47 128 237 / 6%);
   cursor: pointer;
-  grid-template-columns: 36px minmax(0, 1fr) 18px;
-  gap: 9px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 3px 10px;
 }
-.document-associations__toggle > span:nth-child(2) { display: grid; gap: 2px; }
-.document-associations__toggle strong { font-size: 0.7rem; }
-.document-associations__toggle small { color: var(--color-text-secondary); font-size: 0.59rem; }
-.document-associations__toggle > svg { color: #99a8b5; transition: transform 180ms var(--ease-ios); }
-.document-associations__toggle > svg.is-open { transform: rotate(90deg); }
-.document-associations__icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 11px; color: var(--color-primary-dark); background: var(--color-primary-light); }
+.document-associations__summary { display: grid; align-self: end; gap: 2px; }
+.document-associations__summary strong { font-size: 0.72rem; }
+.document-associations__summary small { color: var(--color-text-secondary); font-size: 0.59rem; line-height: 1.3; }
+.document-associations__icon { display: grid; width: 40px; height: 40px; align-self: center; place-items: center; border-radius: 12px; color: white; background: var(--color-primary-dark); grid-row: 1 / 3; }
+.document-associations__action { display: inline-flex; align-self: start; align-items: center; color: var(--color-primary-dark); font-size: 0.61rem; font-weight: 850; gap: 3px; }
+.document-associations__action svg { transition: transform 180ms var(--ease-ios); }
+.document-associations__action svg.is-open { transform: rotate(180deg); }
 .document-associations__editor { display: grid; transform-origin: top center; gap: 8px; }
 .document-associations__editor > p { color: #9b3c36; font-size: 0.64rem; }
 .document-associations__save {
@@ -761,7 +762,7 @@
   .document-upload-travelers button,
   .document-upload-activities button,
   .document-associations__list button,
-  .document-associations__toggle > svg,
+  .document-associations__action svg,
   .document-sheet__delete,
   .document-delete-sheet__actions button,
   .document-card { transition-duration: 0.01ms; }
