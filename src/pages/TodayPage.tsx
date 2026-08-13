@@ -25,7 +25,6 @@ import { setChecklistItemCompletion } from '../api/checklist'
 import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayPayload } from '../api/today'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
-import voyaLogo from '../assets/voya-logo.png'
 import './TodayPage.css'
 
 const categoryLabels: Record<string, string> = {
@@ -49,7 +48,6 @@ function TodaySkeleton() {
   return (
     <div className="today-loading" role="status" aria-label="A carregar o seu dia">
       <div className="today-loading__header">
-        <span className="today-loading__logo" />
         <span className="today-loading__trip" />
         <span className="today-loading__title" />
         <span className="today-loading__notification" />
@@ -89,7 +87,7 @@ function ContextualChecklist({ checklist, savingIds, error, reduceMotion, onTogg
             ? `${checklist.pendingCount} ${checklist.pendingCount === 1 ? 'item pendente' : 'itens pendentes'}`
             : 'Tudo preparado para seguir viagem'}</p>
         </div>
-        <Link to="/more/checklist" aria-label="Abrir checklist completa">Ver tudo<ChevronRight size={15} aria-hidden="true" /></Link>
+        <Link to="/more/checklist?from=today" aria-label="Abrir checklist completa">Ver tudo<ChevronRight size={15} aria-hidden="true" /></Link>
       </div>
 
       {checklist.items.length ? (
@@ -277,7 +275,7 @@ export default function TodayPage() {
           animate={{ opacity: 1, filter: 'blur(0px)' }}
           transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
         >
-          <header className="today-header"><div className="header-info"><img className="today-brand-logo" src={voyaLogo} alt="Voya" /><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
+          <header className="today-header"><div className="header-info"><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
           <AnimatePresence mode="popLayout" initial={false} custom={dayDirection}>
             <motion.div
               className="today-day-content"
