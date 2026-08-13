@@ -5,6 +5,7 @@ import {
   BusFront,
   Check,
   ChevronRight,
+  Download,
   FileText,
   Plane,
   ShieldCheck,
@@ -34,6 +35,13 @@ import {
   type TravelerId,
   type TripDocument,
 } from '../data/documents'
+import {
+  getOfflineDocumentUrl,
+  isDocumentAvailableOffline,
+  removeDocumentOffline,
+  storeDocumentOffline,
+  supportsOfflineDocuments,
+} from '../offline/documents'
 import './DocumentsPage.css'
 
 const PdfViewer = lazy(() => import('../components/PdfViewer'))
@@ -94,6 +102,7 @@ function mapApiDocument(document: ApiDocument): TripDocument {
     status,
     travelerIds: document.travelerIds.filter((id) => travelerIds.has(id)) as TripDocument['travelerIds'],
     fileName: document.originalFilename,
+    mimeType: document.mimeType,
     fileUrl: `/api/documents/${document.id}/file`,
     activityIds: document.activityIds,
     note: `Guardado na NAS · ${Math.max(1, Math.round(Number(document.fileSize) / 1024))} KB`,
@@ -112,7 +121,7 @@ export default function DocumentsPage() {
   const [selected, setSelected] = useState<TripDocument | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<TripDocument | null>(null)
   const [deleteState, setDeleteState] = useState<'idle' | 'deleting' | 'error'>('idle')
-  const [viewer, setViewer] = useState<{ title: string; source: string; temporary: boolean } | null>(null)
+  const [viewer, setViewer] = useState<{ title: string; source: string; mimeType?: string; temporary: boolean } | null>(null)
   const [uploadDraft, setUploadDraft] = useState<UploadDraft | null>(null)
   const [associationDraft, setAssociationDraft] = useState<string[]>([])
   const [associationState, setAssociationState] = useState<'idle' | 'saving' | 'error'>('idle')
@@ -123,6 +132,11 @@ export default function DocumentsPage() {
     progress: number
     message: string
   }>({ status: 'idle', progress: 0, message: '' })
+  const [offlineStates, setOfflineStates] = useState<Record<string, {
+    status: 'checking' | 'idle' | 'downloading' | 'available' | 'removing' | 'error'
+    progress: number | null
+    message: string
+  }>>({})
 
   const documents = remoteDocuments
 
@@ -146,6 +160,41 @@ export default function DocumentsPage() {
     void loadRemoteDocuments(controller.signal)
     return () => controller.abort()
   }, [loadRemoteDocuments])
+
+  useEffect(() => {
+    let active = true
+    const documentsWithFiles = remoteDocuments.filter((document) => document.fileUrl)
+    if (!documentsWithFiles.length) return
+
+    if (!supportsOfflineDocuments()) {
+      setOfflineStates(Object.fromEntries(documentsWithFiles.map((document) => [document.id, {
+        status: 'error', progress: null, message: 'Este navegador não permite guardar documentos offline.',
+      }])))
+      return
+    }
+
+    setOfflineStates((current) => Object.fromEntries(documentsWithFiles.map((document) => [
+      document.id,
+      current[document.id] ?? { status: 'checking', progress: null, message: 'A verificar disponibilidade…' },
+    ])))
+    void Promise.all(documentsWithFiles.map(async (document) => {
+      const available = await isDocumentAvailableOffline(document.fileUrl!)
+      return [document.id, {
+        status: available ? 'available' : 'idle',
+        progress: available ? 100 : null,
+        message: available ? 'Disponível sem ligação à internet.' : 'Ainda requer ligação à internet.',
+      }] as const
+    })).then((entries) => {
+      if (active) setOfflineStates(Object.fromEntries(entries))
+    }).catch(() => {
+      if (!active) return
+      setOfflineStates(Object.fromEntries(documentsWithFiles.map((document) => [document.id, {
+        status: 'error', progress: null, message: 'Não foi possível verificar o armazenamento local.',
+      }])))
+    })
+
+    return () => { active = false }
+  }, [remoteDocuments])
 
   const visibleDocuments = useMemo(
     () => documents.filter((document) => category === 'Todos' || document.category === category),
@@ -254,6 +303,7 @@ export default function DocumentsPage() {
     setDeleteState('deleting')
     try {
       await removeRemoteDocument(deleteConfirm.id)
+      if (deleteConfirm.fileUrl) await removeDocumentOffline(deleteConfirm.fileUrl).catch(() => undefined)
       setRemoteDocuments((current) => current.filter((document) => document.id !== deleteConfirm.id))
       setDeleteConfirm(null)
       setDeleteState('idle')
@@ -296,16 +346,63 @@ export default function DocumentsPage() {
     }
   }
 
-  const openFile = (document: TripDocument) => {
+  const openFile = async (document: TripDocument) => {
     if (document.localFile) {
       const url = URL.createObjectURL(document.localFile)
       setSelected(null)
-      setViewer({ title: document.title, source: url, temporary: true })
+      setViewer({ title: document.title, source: url, mimeType: document.localFile.type, temporary: true })
       return
     }
     if (document.fileUrl) {
+      const offlineUrl = await getOfflineDocumentUrl(document.fileUrl).catch(() => null)
       setSelected(null)
-      setViewer({ title: document.title, source: document.fileUrl, temporary: false })
+      setViewer({
+        title: document.title,
+        source: offlineUrl ?? document.fileUrl,
+        mimeType: document.mimeType,
+        temporary: Boolean(offlineUrl),
+      })
+    }
+  }
+
+  const saveForOffline = async (document: TripDocument) => {
+    if (!document.fileUrl) return
+    setOfflineStates((current) => ({ ...current, [document.id]: {
+      status: 'downloading', progress: 0, message: 'A guardar neste dispositivo…',
+    } }))
+    try {
+      await storeDocumentOffline(document.fileUrl, (progress) => {
+        setOfflineStates((current) => ({ ...current, [document.id]: {
+          status: 'downloading', progress, message: progress === null
+            ? 'A descarregar documento…'
+            : `A descarregar documento… ${progress}%`,
+        } }))
+      })
+      setOfflineStates((current) => ({ ...current, [document.id]: {
+        status: 'available', progress: 100, message: 'Disponível sem ligação à internet.',
+      } }))
+    } catch (error) {
+      setOfflineStates((current) => ({ ...current, [document.id]: {
+        status: 'error', progress: null,
+        message: error instanceof Error ? error.message : 'Não foi possível guardar o documento.',
+      } }))
+    }
+  }
+
+  const removeFromOffline = async (document: TripDocument) => {
+    if (!document.fileUrl) return
+    setOfflineStates((current) => ({ ...current, [document.id]: {
+      status: 'removing', progress: null, message: 'A remover deste dispositivo…',
+    } }))
+    try {
+      await removeDocumentOffline(document.fileUrl)
+      setOfflineStates((current) => ({ ...current, [document.id]: {
+        status: 'idle', progress: null, message: 'Ainda requer ligação à internet.',
+      } }))
+    } catch {
+      setOfflineStates((current) => ({ ...current, [document.id]: {
+        status: 'error', progress: null, message: 'Não foi possível remover a cópia local.',
+      } }))
     }
   }
 
@@ -684,12 +781,46 @@ export default function DocumentsPage() {
               {selected.note && <p className="document-sheet__note">{selected.note}</p>}
 
               {selected.localFile || selected.fileUrl ? (
-                <button className="document-sheet__primary" type="button" onClick={() => openFile(selected)}>
+                <button className="document-sheet__primary" type="button" onClick={() => void openFile(selected)}>
                   Visualizar no app
                 </button>
               ) : (
                 <p className="document-sheet__notice">Os dados são demonstrativos. O ficheiro real será ligado à NAS na próxima etapa.</p>
               )}
+
+              {selected.fileUrl && remoteDocuments.some((document) => document.id === selected.id) && (() => {
+                const offline = offlineStates[selected.id] ?? {
+                  status: 'checking' as const, progress: null, message: 'A verificar disponibilidade…',
+                }
+                const busy = offline.status === 'checking' || offline.status === 'downloading' || offline.status === 'removing'
+                const available = offline.status === 'available'
+                return (
+                  <section className={`document-offline is-${offline.status}`} aria-live="polite" aria-busy={busy}>
+                    <div>
+                      <span className="document-offline__icon"><Download size={18} aria-hidden="true" /></span>
+                      <span><strong>Disponibilidade offline</strong><small>{offline.message}</small></span>
+                    </div>
+                    {offline.status === 'downloading' && offline.progress !== null && (
+                      <span className="document-offline__progress" role="progressbar" aria-label="Descarregar documento" aria-valuemin={0} aria-valuemax={100} aria-valuenow={offline.progress}>
+                        <i style={{ transform: `scaleX(${offline.progress / 100})` }} />
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy || !supportsOfflineDocuments()}
+                      onClick={() => void (available ? removeFromOffline(selected) : saveForOffline(selected))}
+                    >
+                      {offline.status === 'checking' ? 'A verificar…'
+                        : offline.status === 'downloading' ? 'A guardar…'
+                          : offline.status === 'removing' ? 'A remover…'
+                            : available ? 'Remover deste dispositivo'
+                              : offline.status === 'error' ? 'Tentar novamente'
+                                : !supportsOfflineDocuments() ? 'Não disponível'
+                                  : 'Guardar neste dispositivo'}
+                    </button>
+                  </section>
+                )
+              })()}
 
               {remoteDocuments.some((document) => document.id === selected.id) && (
                 <button className="document-sheet__delete" type="button" onClick={() => requestDocumentDeletion(selected)}>
@@ -747,7 +878,7 @@ export default function DocumentsPage() {
       <ModalPortal open={Boolean(viewer)} onClose={closeViewer}>
         {viewer && (
           <Suspense fallback={<div className="pdf-viewer-lazy" role="status">A preparar visualizador…</div>}>
-            <PdfViewer title={viewer.title} source={viewer.source} onClose={closeViewer} />
+            <PdfViewer title={viewer.title} source={viewer.source} mimeType={viewer.mimeType} onClose={closeViewer} />
           </Suspense>
         )}
       </ModalPortal>

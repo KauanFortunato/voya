@@ -19,6 +19,7 @@ export type TripDocument = {
   status: DocumentStatus
   travelerIds: TravelerId[]
   fileName?: string
+  mimeType?: string
   localFile?: File
   note?: string
   travelerRoles?: Partial<Record<TravelerId, string>>

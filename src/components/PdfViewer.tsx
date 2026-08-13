@@ -21,10 +21,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 type PdfViewerProps = {
   source: string
   title: string
+  mimeType?: string
   onClose: () => void
 }
 
-export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
+export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewerProps) {
   const reduceMotion = useReducedMotion()
   const animationControls = useAnimationControls()
   const dragControls = useDragControls()
@@ -39,6 +40,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
   const [progress, setProgress] = useState(0)
   const pinch = useRef({ initialDistance: 0, initialScale: 1, ratio: 1 })
   const collapsedY = Math.round(screenHeight * 0.53)
+  const isImage = mimeType?.startsWith('image/') ?? false
 
   const snapTo = (nextExpanded: boolean) => {
     setExpanded(nextExpanded)
@@ -70,14 +72,14 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
       return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
     }
     const previewPage = (ratio: number) => {
-      const pageElement = element.querySelector<HTMLElement>('.react-pdf__Page')
+      const pageElement = element.querySelector<HTMLElement>('.pdf-viewer__page-content')
       if (!pageElement) return
       pageElement.style.transformOrigin = 'center top'
       pageElement.style.willChange = 'transform'
       pageElement.style.transform = `scale(${ratio})`
     }
     const clearPreview = () => {
-      const pageElement = element.querySelector<HTMLElement>('.react-pdf__Page')
+      const pageElement = element.querySelector<HTMLElement>('.pdf-viewer__page-content')
       if (!pageElement) return
       pageElement.style.transform = ''
       pageElement.style.transformOrigin = ''
@@ -200,7 +202,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
           <h2 id="pdf-viewer-title">{title}</h2>
         </div>
         <div className="pdf-viewer__header-actions">
-          <a href={source} target="_blank" rel="noreferrer" aria-label="Abrir PDF externamente">
+          <a href={source} target="_blank" rel="noreferrer" aria-label="Abrir documento externamente">
             <ExternalLink size={18} aria-hidden="true" />
           </a>
           <button type="button" aria-label="Fechar visualizador" onClick={onClose}>
@@ -210,7 +212,14 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
         </header>
 
         <div className="pdf-viewer__viewport" ref={viewportRef}>
-        <Document
+        {isImage ? (
+          <img
+            className="pdf-viewer__image pdf-viewer__page-content"
+            src={source}
+            alt={title}
+            style={{ width: Math.max(280, Math.min(viewportWidth - 24, 720)) * scale }}
+          />
+        ) : <Document
           file={source}
           onLoadProgress={({ loaded, total }) => setProgress(total ? Math.round((loaded / total) * 100) : 0)}
           onLoadSuccess={({ numPages }) => {
@@ -231,17 +240,18 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
           }
         >
           <Page
+            className="pdf-viewer__page-content"
             pageNumber={page}
             width={Math.max(280, Math.min(viewportWidth - 24, 720))}
             scale={scale}
             renderAnnotationLayer
             renderTextLayer
           />
-        </Document>
+        </Document>}
         </div>
 
         <footer className="pdf-viewer__toolbar" aria-label="Controles do documento">
-        <div>
+        {!isImage && <div>
           <button type="button" aria-label="Página anterior" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
             <ChevronLeft size={19} aria-hidden="true" />
           </button>
@@ -249,7 +259,7 @@ export default function PdfViewer({ source, title, onClose }: PdfViewerProps) {
           <button type="button" aria-label="Próxima página" disabled={!numberOfPages || page >= numberOfPages} onClick={() => setPage((current) => current + 1)}>
             <ChevronRight size={19} aria-hidden="true" />
           </button>
-        </div>
+        </div>}
         <div>
           <button type="button" aria-label="Diminuir zoom" disabled={scale <= 0.75} onClick={() => setScale((current) => Math.max(0.75, current - 0.25))}>
             <ZoomOut size={18} aria-hidden="true" />
