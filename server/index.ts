@@ -261,6 +261,21 @@ async function start() {
     for (const activity of activities) await reconcileActivityReminders(activity.id)
   }
 
+  async function getReminderScheduleSummary(userId: string) {
+    const [summary] = await sql<{
+      scheduledCount: string
+      nextScheduledFor: Date | null
+    }[]>`
+      select count(*)::text as scheduled_count, min(scheduled_for) as next_scheduled_for
+      from reminder_jobs
+      where user_id = ${userId} and status = 'scheduled'
+    `
+    return {
+      scheduledCount: Number(summary?.scheduledCount ?? 0),
+      nextScheduledFor: summary?.nextScheduledFor ?? null,
+    }
+  }
+
   app.post('/api/auth/login', async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send({ error: 'Dados de login inválidos' })
@@ -327,7 +342,10 @@ async function start() {
       where user_id = ${user.id}
     `
 
-    return preferences ?? { enabled: false, defaultLeadMinutes: 30, updatedAt: null }
+    return {
+      ...(preferences ?? { enabled: false, defaultLeadMinutes: 30, updatedAt: null }),
+      schedule: await getReminderScheduleSummary(user.id),
+    }
   })
 
   app.put('/api/reminder-preferences', async (request, reply) => {
@@ -350,7 +368,7 @@ async function start() {
       returning enabled, default_lead_minutes, updated_at
     `
     await reconcileUserReminders(user.id)
-    return preferences
+    return { ...preferences, schedule: await getReminderScheduleSummary(user.id) }
   })
 
   app.get('/api/travelers', async (request, reply) => {
