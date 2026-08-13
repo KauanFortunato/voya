@@ -862,7 +862,7 @@ export default function DocumentsPage() {
               </div>
 
               {remoteDocuments.some((document) => document.id === selected.id) && (
-                <div className={`document-associations${associationsOpen ? ' is-open' : ''}`}>
+                <div className="document-associations">
                   <button
                     className="document-associations__toggle"
                     type="button"
