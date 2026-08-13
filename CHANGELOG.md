@@ -25,6 +25,8 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 ### Corrigido
 
 - Navegação de retorno dos detalhes e do visualizador de documentos, que agora fecha o popup antes de sair da página Documentos.
+- Retorno contextual da checklist: acessos pela tela Hoje voltam para Hoje, enquanto acessos pelo menu Mais voltam para Mais.
+- Controle offline de documentos resiliente ao carregamento de estilos antigos, sem expor mensagens internas na interface.
 - Conflito de estilos do onboarding que sobrepunha os cartões da linha do tempo na primeira entrada da tela Hoje.
 - Calendário incompleto em produção; as visões de dia, semana e mês agora usam todos os dias persistidos na API.
 - Identificadores persistidos dos itens de checklist.
@@ -34,3 +36,4 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 - A associação de um documento ao roteiro passou a ficar recolhida em uma ação secundária, reduzindo a poluição visual dos detalhes.
 - A disponibilidade offline dos documentos passou a usar um controle compacto de nuvem no topo dos detalhes, verde quando existe uma cópia local.
+- A logo foi removida do cabeçalho da tela Hoje, incluindo o espaço correspondente no skeleton.

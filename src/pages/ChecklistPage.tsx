@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Check, CircleAlert, ListChecks, Plus, UserRound, UsersRound, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 
 import {
   createChecklistItem,
@@ -96,6 +97,8 @@ function ItemEditor({ groups, initialScope, onClose, onCreated }: ItemEditorProp
 
 export default function ChecklistPage() {
   const reduceMotion = useReducedMotion()
+  const [searchParams] = useSearchParams()
+  const openedFromToday = searchParams.get('from') === 'today'
   const [scope, setScope] = useState<ChecklistScope>('family')
   const [checklist, setChecklist] = useState<ChecklistPayload | null>(null)
   const [loading, setLoading] = useState(true)
@@ -181,6 +184,8 @@ export default function ChecklistPage() {
       <SubpageHeader
         kicker={checklist?.trip.title ?? 'Viagem atual'}
         title="Checklist"
+        backTo={openedFromToday ? '/today' : '/more'}
+        backLabel={openedFromToday ? 'Hoje' : 'Mais'}
         actionIcon={allowedGroups.length ? Plus : undefined}
         actionLabel={allowedGroups.length ? 'Adicionar item' : undefined}
         onAction={() => setEditorOpen(true)}
