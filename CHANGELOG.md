@@ -16,6 +16,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Checklist contextual na tela Hoje, com pendências priorizadas, conclusão direta e acesso à lista completa.
 - Criação e edição persistente de atividades do roteiro, com marcação de atividades importantes.
 - Preferências pessoais de lembrete, com ativação por perfil e antecedência padrão de 15 min, 30 min, 1 hora ou 1 dia.
+- Configuração de lembrete por atividade importante, com antecedência própria e seleção de destinatários da viagem.
 
 ### Melhorado
 
