@@ -541,6 +541,68 @@
 
 .document-sheet__primary:disabled { cursor: default; opacity: 0.55; }
 
+.document-file-actions {
+  display: grid;
+  margin-top: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.document-file-actions .document-sheet__primary { margin-top: 0; }
+
+.document-sheet__share {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 15px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  gap: 6px;
+}
+
+.document-sheet__share:disabled { cursor: default; opacity: 0.6; }
+
+.document-share-state {
+  position: relative;
+  overflow: hidden;
+  padding: 9px 11px 11px;
+  margin-top: 8px;
+  border-radius: 12px;
+  color: var(--color-text-secondary);
+  background: white;
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.document-share-state.is-ready,
+.document-share-state.is-success,
+.document-share-state.is-downloaded { color: #20785e; background: #e7f8f1; }
+.document-share-state.is-error { color: #9b3c36; background: #fff0ee; }
+
+.document-share-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-primary-light);
+}
+
+.document-share-progress i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-primary);
+  transform-origin: left center;
+  transition: transform 180ms var(--ease-out);
+}
+
 .document-offline {
   position: relative;
   display: grid;
@@ -672,6 +734,7 @@
   .documents-progress i,
   .documents-upload-progress i,
   .document-offline__progress i,
+  .document-share-progress i,
   .documents-filters button,
   .document-upload-categories button,
   .document-upload-travelers button,

@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   Plane,
+  Share2,
   ShieldCheck,
   Ticket,
   Trash2,
@@ -35,9 +36,12 @@ import {
   type TravelerId,
   type TripDocument,
 } from '../data/documents'
+import { documentFilename } from '../documents/filename'
+import { canShareDocument, downloadDocument } from '../documents/share'
 import {
   getOfflineDocumentUrl,
   isDocumentAvailableOffline,
+  readDocumentBlob,
   removeDocumentOffline,
   storeDocumentOffline,
   supportsOfflineDocuments,
@@ -137,6 +141,12 @@ export default function DocumentsPage() {
     progress: number | null
     message: string
   }>>({})
+  const preparedShare = useRef<{ documentId: string; file: File } | null>(null)
+  const [shareState, setShareState] = useState<{
+    status: 'idle' | 'preparing' | 'ready' | 'sharing' | 'success' | 'downloaded' | 'error'
+    progress: number | null
+    message: string
+  }>({ status: 'idle', progress: null, message: '' })
 
   const documents = remoteDocuments
 
@@ -257,6 +267,8 @@ export default function DocumentsPage() {
   }
 
   const openDocument = (document: TripDocument) => {
+    preparedShare.current = null
+    setShareState({ status: 'idle', progress: null, message: '' })
     setAssociationDraft(document.activityIds ?? [])
     setAssociationState('idle')
     setSelected(document)
@@ -403,6 +415,73 @@ export default function DocumentsPage() {
       setOfflineStates((current) => ({ ...current, [document.id]: {
         status: 'error', progress: null, message: 'Não foi possível remover a cópia local.',
       } }))
+    }
+  }
+
+  const shareDocument = async (document: TripDocument) => {
+    const prepared = preparedShare.current?.documentId === document.id
+      ? preparedShare.current.file
+      : null
+
+    if (prepared && canShareDocument(prepared)) {
+      setShareState({ status: 'sharing', progress: 100, message: 'A abrir as opções de compartilhamento…' })
+      try {
+        await navigator.share({
+          files: [prepared],
+          title: document.title,
+          text: `Documento da viagem: ${document.title}`,
+        })
+        setShareState({ status: 'success', progress: 100, message: 'Documento compartilhado.' })
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          setShareState({ status: 'ready', progress: 100, message: 'Compartilhamento cancelado. O arquivo continua pronto.' })
+          return
+        }
+        setShareState({ status: 'error', progress: null, message: 'Não foi possível abrir o compartilhamento.' })
+      }
+      return
+    }
+
+    setShareState({ status: 'preparing', progress: 0, message: 'A preparar o arquivo…' })
+    try {
+      const blob = document.localFile ?? (document.fileUrl
+        ? await readDocumentBlob(document.fileUrl, (progress) => setShareState({
+          status: 'preparing',
+          progress,
+          message: progress === null ? 'A preparar o arquivo…' : `A preparar o arquivo… ${progress}%`,
+        }))
+        : null)
+      if (!blob) throw new Error('Este documento ainda não possui um arquivo para compartilhar.')
+
+      const mimeType = blob.type || document.mimeType || 'application/octet-stream'
+      const file = new File(
+        [blob],
+        documentFilename(document.fileName, document.title, mimeType),
+        { type: mimeType },
+      )
+      preparedShare.current = { documentId: document.id, file }
+
+      if (canShareDocument(file)) {
+        setShareState({
+          status: 'ready',
+          progress: 100,
+          message: 'Arquivo pronto. Toque novamente para escolher com quem compartilhar.',
+        })
+        return
+      }
+
+      downloadDocument(file)
+      setShareState({
+        status: 'downloaded',
+        progress: 100,
+        message: 'O navegador não oferece compartilhamento de arquivos. O download foi iniciado.',
+      })
+    } catch (error) {
+      setShareState({
+        status: 'error',
+        progress: null,
+        message: error instanceof Error ? error.message : 'Não foi possível preparar o documento.',
+      })
     }
   }
 
@@ -781,9 +860,38 @@ export default function DocumentsPage() {
               {selected.note && <p className="document-sheet__note">{selected.note}</p>}
 
               {selected.localFile || selected.fileUrl ? (
-                <button className="document-sheet__primary" type="button" onClick={() => void openFile(selected)}>
-                  Visualizar no app
-                </button>
+                <>
+                  <div className="document-file-actions">
+                    <button className="document-sheet__primary" type="button" onClick={() => void openFile(selected)}>
+                      Visualizar no app
+                    </button>
+                    <button
+                      className="document-sheet__share"
+                      type="button"
+                      disabled={shareState.status === 'preparing' || shareState.status === 'sharing'}
+                      aria-busy={shareState.status === 'preparing' || shareState.status === 'sharing'}
+                      onClick={() => void shareDocument(selected)}
+                    >
+                      <Share2 size={17} aria-hidden="true" />
+                      {shareState.status === 'preparing' ? 'A preparar…'
+                        : shareState.status === 'sharing' ? 'A compartilhar…'
+                          : shareState.status === 'ready' || shareState.status === 'success' ? 'Compartilhar agora'
+                            : shareState.status === 'error' ? 'Tentar novamente'
+                              : shareState.status === 'downloaded' ? 'Baixar novamente'
+                                : 'Compartilhar arquivo'}
+                    </button>
+                  </div>
+                  {shareState.status !== 'idle' && (
+                    <div className={`document-share-state is-${shareState.status}`} role={shareState.status === 'error' ? 'alert' : 'status'}>
+                      <span>{shareState.message}</span>
+                      {shareState.status === 'preparing' && shareState.progress !== null && (
+                        <span className="document-share-progress" role="progressbar" aria-label="Preparar documento para compartilhar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={shareState.progress}>
+                          <i style={{ transform: `scaleX(${shareState.progress / 100})` }} />
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="document-sheet__notice">Os dados são demonstrativos. O ficheiro real será ligado à NAS na próxima etapa.</p>
               )}
