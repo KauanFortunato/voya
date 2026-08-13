@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BellRing, CalendarClock, Check, ChevronRight, CircleAlert, Clock3, Save, Smartphone, UserRound } from 'lucide-react'
+import { BellRing, CalendarClock, Check, ChevronRight, CircleAlert, Clock3, LoaderCircle, Save, Smartphone, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import {
@@ -9,6 +9,12 @@ import {
   type ReminderPreferences,
 } from '../api/settings'
 import SubpageHeader from '../components/SubpageHeader'
+import {
+  getNotificationPermissionState,
+  isIosBrowserWithoutInstalledApp,
+  requestNotificationPermission,
+  type NotificationPermissionState,
+} from '../notifications/permission'
 import './SettingsPage.css'
 
 const leadOptions: Array<{ value: ReminderLeadMinutes; label: string; detail: string }> = [
@@ -17,6 +23,29 @@ const leadOptions: Array<{ value: ReminderLeadMinutes; label: string; detail: st
   { value: 60, label: '1 hora', detail: 'Mais tempo para se preparar' },
   { value: 1440, label: '1 dia', detail: 'Aviso no dia anterior' },
 ]
+
+const permissionContent: Record<NotificationPermissionState, { label: string; detail: string }> = {
+  granted: {
+    label: 'Permitidas',
+    detail: 'Este dispositivo permite mostrar notificações do Voya.',
+  },
+  prompt: {
+    label: 'Por configurar',
+    detail: 'A decisão só será pedida quando tocar em ativar.',
+  },
+  denied: {
+    label: 'Bloqueadas',
+    detail: 'Permita as notificações nas definições do navegador ou do dispositivo.',
+  },
+  unsupported: {
+    label: 'Indisponíveis',
+    detail: 'Este navegador não disponibiliza notificações para o Voya.',
+  },
+  insecure: {
+    label: 'Requer HTTPS',
+    detail: 'Abra o Voya através de uma ligação segura para configurar notificações.',
+  },
+}
 
 function SettingsSkeleton() {
   return (
@@ -37,6 +66,8 @@ export default function SettingsPage() {
   const [initialPreferences, setInitialPreferences] = useState<ReminderPreferences | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'saving' | 'saved' | 'error'>('loading')
   const [message, setMessage] = useState('')
+  const [permissionState, setPermissionState] = useState<NotificationPermissionState>(() => getNotificationPermissionState())
+  const [permissionRequestState, setPermissionRequestState] = useState<'idle' | 'requesting' | 'error'>('idle')
 
   const load = async (signal?: AbortSignal) => {
     setState('loading')
@@ -59,6 +90,20 @@ export default function SettingsPage() {
     return () => controller.abort()
   }, [])
 
+  useEffect(() => {
+    const refreshPermission = () => {
+      setPermissionState(getNotificationPermissionState())
+      setPermissionRequestState('idle')
+    }
+
+    window.addEventListener('focus', refreshPermission)
+    document.addEventListener('visibilitychange', refreshPermission)
+    return () => {
+      window.removeEventListener('focus', refreshPermission)
+      document.removeEventListener('visibilitychange', refreshPermission)
+    }
+  }, [])
+
   const changed = Boolean(preferences && initialPreferences && (
     preferences.enabled !== initialPreferences.enabled
     || preferences.defaultLeadMinutes !== initialPreferences.defaultLeadMinutes
@@ -78,6 +123,19 @@ export default function SettingsPage() {
     } catch (reason) {
       setState('error')
       setMessage(reason instanceof Error ? reason.message : 'Não foi possível guardar as preferências')
+    }
+  }
+
+  const enableNotificationsOnDevice = async () => {
+    if (!initialPreferences?.enabled || permissionState !== 'prompt' || permissionRequestState === 'requesting') return
+
+    setPermissionRequestState('requesting')
+    try {
+      setPermissionState(await requestNotificationPermission())
+      setPermissionRequestState('idle')
+    } catch {
+      setPermissionState(getNotificationPermissionState())
+      setPermissionRequestState('error')
     }
   }
 
@@ -186,10 +244,29 @@ export default function SettingsPage() {
               <div><strong>Perfil de viajante</strong><small>Ritmo, interesses, alimentação e acessibilidade</small></div>
               <ChevronRight size={17} aria-hidden="true" />
             </Link>
-            <div className="settings-row settings-row--static">
+            <div className={`settings-row settings-row--static settings-device-permission is-${permissionState}`}>
               <span><Smartphone size={19} aria-hidden="true" /></span>
-              <div><strong>Notificações neste dispositivo</strong><small>A permissão será pedida somente quando você ativar a entrega no dispositivo.</small></div>
-              <b>Por configurar</b>
+              <div>
+                <strong>Notificações neste dispositivo</strong>
+                <small>{permissionState === 'unsupported' && isIosBrowserWithoutInstalledApp()
+                  ? 'No iPhone ou iPad, adicione o Voya ao ecrã principal e abra-o pelo ícone.'
+                  : permissionState === 'prompt' && !initialPreferences?.enabled
+                    ? 'Ative e guarde os lembretes antes de configurar este dispositivo.'
+                    : permissionContent[permissionState].detail}</small>
+                {permissionRequestState === 'error' && <em role="alert">Não foi possível abrir o pedido. Tente novamente.</em>}
+              </div>
+              <b>{permissionContent[permissionState].label}</b>
+              {permissionState === 'prompt' && (
+                <button
+                  type="button"
+                  disabled={!initialPreferences?.enabled || permissionRequestState === 'requesting'}
+                  aria-busy={permissionRequestState === 'requesting'}
+                  onClick={() => void enableNotificationsOnDevice()}
+                >
+                  {permissionRequestState === 'requesting' && <LoaderCircle size={15} aria-hidden="true" />}
+                  {permissionRequestState === 'requesting' ? 'A aguardar…' : 'Ativar neste dispositivo'}
+                </button>
+              )}
             </div>
           </section>
         </form>
