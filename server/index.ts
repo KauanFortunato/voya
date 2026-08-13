@@ -58,6 +58,21 @@ const expenseSchema = z.object({
 })
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
+const activityTimeSchema = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable()
+const activityEditorSchema = z.object({
+  dayDate: z.string().date(),
+  title: z.string().trim().min(1).max(160),
+  category: z.enum(['atracao', 'comboio', 'deslocamento', 'hospedagem', 'passeio', 'refeicao', 'tempo_livre', 'voo']),
+  startTime: activityTimeSchema,
+  endTime: activityTimeSchema,
+  address: z.string().trim().max(500),
+  notes: z.string().trim().max(2000),
+  isImportant: z.boolean(),
+}).superRefine((activity, context) => {
+  if (activity.startTime && activity.endTime && activity.endTime <= activity.startTime) {
+    context.addIssue({ code: 'custom', path: ['endTime'], message: 'O fim deve ser posterior ao início' })
+  }
+})
 const databaseUuidSchema = z.string().regex(
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 )
@@ -839,13 +854,14 @@ async function start() {
       address: string | null
       notes: string | null
       status: 'planned' | 'current' | 'completed' | 'cancelled'
+      isImportant: boolean
       position: number
       dayPosition: number
     }[]>`
       select a.id, a.source_key, a.title, a.category, td.day_date::text,
              td.city, to_char(a.starts_at at time zone 'Europe/Rome', 'HH24:MI') as time,
              to_char(a.ends_at at time zone 'Europe/Rome', 'HH24:MI') as end_time,
-             a.address, a.notes, a.status, a.position, td.position as day_position
+             a.address, a.notes, a.status, a.is_important, a.position, td.position as day_position
       from activities a
       join trip_days td on td.id = a.trip_day_id
       where td.trip_id = ${trip.id}
@@ -853,6 +869,71 @@ async function start() {
     `
 
     return { trip, documents, activities }
+  })
+
+  app.post('/api/activities', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para adicionar uma atividade' })
+    if (user.role !== 'organizer') return reply.code(403).send({ error: 'Só o organizador pode alterar o roteiro' })
+    const body = activityEditorSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Preencha os dados da atividade corretamente' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [day] = await sql<{ id: string }[]>`
+      select id from trip_days where trip_id = ${trip.id} and day_date = ${body.data.dayDate}
+    `
+    if (!day) return reply.code(404).send({ error: 'Dia não encontrado nesta viagem' })
+
+    const activityId = randomUUID()
+    const startLocal = body.data.startTime ? `${body.data.dayDate}T${body.data.startTime}:00` : null
+    const endLocal = body.data.endTime ? `${body.data.dayDate}T${body.data.endTime}:00` : null
+    await sql`
+      insert into activities (
+        id, trip_day_id, title, category, starts_at, ends_at, address, notes,
+        is_important, status, position
+      ) values (
+        ${activityId}, ${day.id}, ${body.data.title}, ${body.data.category},
+        ${startLocal}::timestamp at time zone 'Europe/Rome',
+        ${endLocal}::timestamp at time zone 'Europe/Rome',
+        ${body.data.address || null}, ${body.data.notes || null},
+        ${body.data.isImportant}, 'planned',
+        (select coalesce(max(position), -1) + 1 from activities where trip_day_id = ${day.id})
+      )
+    `
+    return reply.code(201).send({ id: activityId })
+  })
+
+  app.put('/api/activities/:id', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar uma atividade' })
+    if (user.role !== 'organizer') return reply.code(403).send({ error: 'Só o organizador pode alterar o roteiro' })
+    const params = z.object({ id: databaseUuidSchema }).safeParse(request.params)
+    const body = activityEditorSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Dados da atividade inválidos' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const [activity] = await sql<{ id: string; dayDate: string }[]>`
+      select a.id, td.day_date::text
+      from activities a join trip_days td on td.id = a.trip_day_id
+      where a.id = ${params.data.id} and td.trip_id = ${trip.id}
+    `
+    if (!activity) return reply.code(404).send({ error: 'Atividade não encontrada nesta viagem' })
+    if (activity.dayDate !== body.data.dayDate) return reply.code(400).send({ error: 'Não é possível mover a atividade entre dias neste editor' })
+
+    const startLocal = body.data.startTime ? `${body.data.dayDate}T${body.data.startTime}:00` : null
+    const endLocal = body.data.endTime ? `${body.data.dayDate}T${body.data.endTime}:00` : null
+    await sql`
+      update activities set
+        title = ${body.data.title}, category = ${body.data.category},
+        starts_at = ${startLocal}::timestamp at time zone 'Europe/Rome',
+        ends_at = ${endLocal}::timestamp at time zone 'Europe/Rome',
+        address = ${body.data.address || null}, notes = ${body.data.notes || null},
+        is_important = ${body.data.isImportant}, updated_at = now()
+      where id = ${activity.id}
+    `
+    return { id: activity.id }
   })
 
   app.post('/api/documents', async (request, reply) => {

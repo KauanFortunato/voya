@@ -40,6 +40,8 @@ export function mapRemoteItinerary(activities: ApiItineraryActivity[], documents
       note: activity.notes ?? undefined,
       isFreeSlot,
       isConfirmed: activity.status !== 'cancelled',
+      isImportant: activity.isImportant,
+      categoryKey: activity.category,
       documentIds: documents.filter((document) => document.activityIds.includes(activity.id)).map((document) => document.id),
     })
   }
@@ -50,6 +52,38 @@ export function mapRemoteItinerary(activities: ApiItineraryActivity[], documents
       day.summary = `${day.activities.length} atividades${day.freeMinutes ? ` · ${formatDuration(day.freeMinutes)} livres` : ''}`
       return day
     })
+}
+
+export type ActivityInput = {
+  dayDate: string
+  title: string
+  category: string
+  startTime: string | null
+  endTime: string | null
+  address: string
+  notes: string
+  isImportant: boolean
+}
+
+async function saveActivityRequest(path: string, method: 'POST' | 'PUT', input: ActivityInput) {
+  const response = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: string } | null
+    throw new Error(payload?.error ?? 'Não foi possível guardar a atividade')
+  }
+  return response.json() as Promise<{ id: string }>
+}
+
+export function createActivity(input: ActivityInput) {
+  return saveActivityRequest('/api/activities', 'POST', input)
+}
+
+export function updateActivity(activityId: string, input: ActivityInput) {
+  return saveActivityRequest(`/api/activities/${activityId}`, 'PUT', input)
 }
 
 export async function getRemoteItinerary(signal?: AbortSignal) {
