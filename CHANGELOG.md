@@ -19,6 +19,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Configuração de lembrete por atividade importante, com antecedência própria e seleção de destinatários da viagem.
 - Jobs persistentes de lembrete com agendamento idempotente, cancelamento e reagendamento automático.
 - Central de configurações com estado dos lembretes, próximo aviso, preferências pessoais e situação do dispositivo.
+- Controle de permissão de notificações por dispositivo, solicitado apenas após ativação explícita e com estados permitido, bloqueado ou indisponível.
 
 ### Melhorado
 
