@@ -4,6 +4,10 @@ export type ReminderPreferences = {
   enabled: boolean
   defaultLeadMinutes: ReminderLeadMinutes
   updatedAt: string | null
+  schedule: {
+    scheduledCount: number
+    nextScheduledFor: string | null
+  }
 }
 
 async function readError(response: Response) {

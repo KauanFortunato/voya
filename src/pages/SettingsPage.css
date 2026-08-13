@@ -4,6 +4,15 @@
 .settings-intro > span { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: var(--color-primary-dark); background: var(--color-primary-light); }
 .settings-intro h2 { font-size: .9rem; }
 .settings-intro p { margin-top: 3px; color: var(--color-text-secondary); font-size: .67rem; line-height: 1.4; }
+.settings-status { display: grid; min-height: 72px; align-items: center; padding: 12px 13px; border-radius: 17px; grid-template-columns: 39px minmax(0, 1fr) auto; color: var(--color-text-secondary); background: white; box-shadow: 0 0 0 1px rgb(47 128 237 / 7%); gap: 10px; }
+.settings-status__icon { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 12px; color: var(--color-text-secondary); background: var(--color-background); }
+.settings-status > div { display: grid; min-width: 0; gap: 2px; }
+.settings-status strong { color: var(--color-text); font-size: .75rem; }
+.settings-status small, .settings-status > div > span { font-size: .59rem; }
+.settings-status > div > span { color: var(--color-primary-dark); font-weight: 720; }
+.settings-status > b { padding: 5px 7px; border-radius: 999px; color: var(--color-text-secondary); background: var(--color-background); font-size: .56rem; }
+.settings-status.is-active .settings-status__icon { color: #267b61; background: #e8f8f2; }
+.settings-status.is-active > b { color: #267b61; background: #e8f8f2; }
 .settings-toggle { display: flex; width: 100%; min-height: 68px; align-items: center; justify-content: space-between; padding: 12px 14px; border: 0; border-radius: 17px; color: var(--color-text-secondary); text-align: left; background: white; box-shadow: 0 0 0 1px rgb(47 128 237 / 7%); cursor: pointer; gap: 14px; }
 .settings-toggle > span { display: grid; gap: 3px; }
 .settings-toggle strong { color: var(--color-text); font-size: .78rem; }
@@ -33,13 +42,27 @@
 .settings-error strong { font-size: .82rem; }
 .settings-error span { font-size: .66rem; }
 .settings-error button { min-height: 38px; padding: 0 13px; border: 0; border-radius: 11px; color: white; background: #9b3c36; font-weight: 750; cursor: pointer; }
+.settings-personal { overflow: hidden; margin-top: 5px; border-radius: 18px; background: white; box-shadow: 0 0 0 1px rgb(47 128 237 / 7%); }
+.settings-section-heading { padding: 14px 14px 10px; }
+.settings-section-heading > span { color: var(--color-primary-dark); font-size: .57rem; font-weight: 820; text-transform: uppercase; letter-spacing: .07em; }
+.settings-section-heading h2 { margin-top: 2px; font-size: .86rem; }
+.settings-row { display: grid; min-height: 65px; align-items: center; padding: 10px 13px; grid-template-columns: 38px minmax(0, 1fr) auto; color: var(--color-text); text-decoration: none; gap: 10px; }
+.settings-row + .settings-row { border-top: 1px solid var(--color-border); }
+.settings-row > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 12px; color: var(--color-primary-dark); background: var(--color-primary-light); }
+.settings-row > div { display: grid; min-width: 0; gap: 2px; }
+.settings-row strong { font-size: .71rem; }
+.settings-row small { color: var(--color-text-secondary); font-size: .58rem; line-height: 1.35; }
+.settings-row > svg { color: #9aa7b4; }
+.settings-row > b { max-width: 72px; padding: 5px 7px; border-radius: 999px; color: #9b6b1c; background: #fff5dd; font-size: .52rem; text-align: center; }
+.settings-row:not(.settings-row--static):active { background: var(--color-background); }
 .settings-loading { display: grid; gap: 14px; }
 .settings-loading > span { position: relative; display: block; overflow: hidden; border-radius: 17px; background: #e5f1fa; }
 .settings-loading > span::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 75%) 50%, transparent 80%); content: ''; transform: translateX(-100%); animation: settings-shimmer 1.35s linear infinite; }
-.settings-loading__intro, .settings-loading__toggle { height: 72px; }
+.settings-loading__intro, .settings-loading__status, .settings-loading__toggle { height: 72px; }
 .settings-loading__label { width: 140px; height: 18px; }
 .settings-loading__options { height: 144px; }
 .settings-loading__button { height: 49px; }
+.settings-loading__personal { height: 154px; }
 @keyframes settings-shimmer { to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) {
   .settings-toggle > i, .settings-toggle > i > b, .settings-lead label, .settings-lead label > svg, .settings-save { transition-duration: .01ms; }

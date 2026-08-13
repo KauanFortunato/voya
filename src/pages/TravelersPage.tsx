@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Check, Gauge, HeartHandshake, Pencil, Save, Utensils, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 
 import { listTravelers, updateTravelerProfile, type ApiTraveler, type TravelerInterest } from '../api/travelers'
 import ModalPortal from '../components/ModalPortal'
@@ -133,6 +134,8 @@ function TravelerEditor({ traveler, onClose, onSaved }: TravelerEditorProps) {
 }
 
 export default function TravelersPage() {
+  const [searchParams] = useSearchParams()
+  const openedFromSettings = searchParams.get('from') === 'settings'
   const [travelers, setTravelers] = useState<ApiTraveler[]>([])
   const [selected, setSelected] = useState<ApiTraveler | null>(null)
   const [loading, setLoading] = useState(true)
@@ -167,7 +170,12 @@ export default function TravelersPage() {
 
   return (
     <main className="travelers-page" id="main-content">
-      <SubpageHeader kicker="Perfis da viagem" title="Viajantes" />
+      <SubpageHeader
+        kicker="Perfis da viagem"
+        title="Viajantes"
+        backTo={openedFromSettings ? '/more/settings' : '/more'}
+        backLabel={openedFromSettings ? 'Configurações' : 'Mais'}
+      />
       <section className="travelers-intro">
         <HeartHandshake size={21} aria-hidden="true" />
         <div><strong>Uma viagem que funciona para todos</strong><span>Ritmo, alimentação e necessidades ficam visíveis para os demais viajantes.</span></div>

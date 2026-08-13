@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { BellRing, Check, CircleAlert, Clock3, Save } from 'lucide-react'
+import { BellRing, CalendarClock, Check, ChevronRight, CircleAlert, Clock3, Save, Smartphone, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 import {
   getReminderPreferences,
@@ -21,10 +22,12 @@ function SettingsSkeleton() {
   return (
     <div className="settings-loading" role="status" aria-label="A carregar preferências">
       <span className="settings-loading__intro" />
+      <span className="settings-loading__status" />
       <span className="settings-loading__toggle" />
       <span className="settings-loading__label" />
       <span className="settings-loading__options" />
       <span className="settings-loading__button" />
+      <span className="settings-loading__personal" />
     </div>
   )
 }
@@ -78,6 +81,11 @@ export default function SettingsPage() {
     }
   }
 
+  const nextReminder = preferences?.schedule.nextScheduledFor
+    ? new Intl.DateTimeFormat('pt-PT', { dateStyle: 'medium', timeStyle: 'short' })
+      .format(new Date(preferences.schedule.nextScheduledFor))
+    : null
+
   return (
     <main className="settings-page" id="main-content" aria-busy={state === 'loading' || state === 'saving'}>
       <SubpageHeader kicker="Preferências pessoais" title="Configurações" />
@@ -100,6 +108,20 @@ export default function SettingsPage() {
               <h2 id="reminder-settings-title">Lembretes da viagem</h2>
               <p>Defina como as atividades importantes devem considerar o seu perfil.</p>
             </div>
+          </section>
+
+          <section className={`settings-status${preferences.enabled ? ' is-active' : ''}`} aria-label="Estado dos lembretes">
+            <span className="settings-status__icon"><CalendarClock size={20} aria-hidden="true" /></span>
+            <div>
+              <strong>{preferences.enabled ? 'Lembretes ativos' : 'Lembretes pausados'}</strong>
+              <small>{preferences.enabled
+                ? preferences.schedule.scheduledCount
+                  ? `${preferences.schedule.scheduledCount} ${preferences.schedule.scheduledCount === 1 ? 'aviso agendado' : 'avisos agendados'}`
+                  : 'Nenhum aviso agendado neste momento'
+                : 'Nenhum aviso será agendado para este perfil'}</small>
+              {preferences.enabled && nextReminder && <span>Próximo: {nextReminder}</span>}
+            </div>
+            <b>{preferences.enabled ? 'Ativo' : 'Pausado'}</b>
           </section>
 
           <button
@@ -153,6 +175,23 @@ export default function SettingsPage() {
             <Save size={17} aria-hidden="true" />
             {state === 'saving' ? 'A guardar…' : 'Guardar preferências'}
           </button>
+
+          <section className="settings-personal" aria-labelledby="personal-settings-title">
+            <div className="settings-section-heading">
+              <span>Conta e dispositivo</span>
+              <h2 id="personal-settings-title">Preferências pessoais</h2>
+            </div>
+            <Link to="/more/travelers?from=settings" className="settings-row">
+              <span><UserRound size={19} aria-hidden="true" /></span>
+              <div><strong>Perfil de viajante</strong><small>Ritmo, interesses, alimentação e acessibilidade</small></div>
+              <ChevronRight size={17} aria-hidden="true" />
+            </Link>
+            <div className="settings-row settings-row--static">
+              <span><Smartphone size={19} aria-hidden="true" /></span>
+              <div><strong>Notificações neste dispositivo</strong><small>A permissão será pedida somente quando você ativar a entrega no dispositivo.</small></div>
+              <b>Por configurar</b>
+            </div>
+          </section>
         </form>
       )}
     </main>
