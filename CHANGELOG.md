@@ -24,7 +24,12 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Corrigido
 
+- Navegação de retorno dos detalhes e do visualizador de documentos, que agora fecha o popup antes de sair da página Documentos.
 - Conflito de estilos do onboarding que sobrepunha os cartões da linha do tempo na primeira entrada da tela Hoje.
 - Calendário incompleto em produção; as visões de dia, semana e mês agora usam todos os dias persistidos na API.
 - Identificadores persistidos dos itens de checklist.
 - Continuidade visual ao navegar entre dias e ao terminar o carregamento da tela Hoje.
+
+### Alterado
+
+- A associação de um documento ao roteiro passou a ficar recolhida em uma ação secundária, reduzindo a poluição visual dos detalhes.

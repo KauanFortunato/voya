@@ -451,7 +451,7 @@
 .document-upload-muted { color: var(--color-text-secondary); font-size: 0.64rem; }
 
 .document-upload-activities,
-.document-associations > div {
+.document-associations__list {
   display: grid;
   max-height: 210px;
   overflow-y: auto;
@@ -459,7 +459,7 @@
 }
 
 .document-upload-activities button,
-.document-associations > div button {
+.document-associations__list button {
   display: flex;
   min-height: 48px;
   align-items: center;
@@ -476,17 +476,38 @@
 }
 
 .document-upload-activities button > span,
-.document-associations > div button > span { display: grid; min-width: 0; gap: 2px; }
+.document-associations__list button > span { display: grid; min-width: 0; gap: 2px; }
 .document-upload-activities strong,
-.document-associations b { overflow: hidden; color: var(--color-text); font-size: 0.67rem; text-overflow: ellipsis; white-space: nowrap; }
+.document-associations__list b { overflow: hidden; color: var(--color-text); font-size: 0.67rem; text-overflow: ellipsis; white-space: nowrap; }
 .document-upload-activities small,
-.document-associations small { color: var(--color-text-secondary); font-size: 0.57rem; }
+.document-associations__list small { color: var(--color-text-secondary); font-size: 0.57rem; }
 .document-upload-activities button.is-selected,
-.document-associations > div button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
+.document-associations__list button.is-selected { border-color: var(--color-primary); color: var(--color-primary-dark); background: var(--color-primary-light); }
 
 .document-associations { display: grid; margin-top: 17px; gap: 8px; }
-.document-associations > strong { font-size: 0.76rem; }
-.document-associations > p { color: #9b3c36; font-size: 0.64rem; }
+.document-associations__toggle {
+  display: grid;
+  min-height: 54px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--color-text);
+  text-align: left;
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+  cursor: pointer;
+  grid-template-columns: 36px minmax(0, 1fr) 18px;
+  gap: 9px;
+}
+.document-associations__toggle > span:nth-child(2) { display: grid; gap: 2px; }
+.document-associations__toggle strong { font-size: 0.7rem; }
+.document-associations__toggle small { color: var(--color-text-secondary); font-size: 0.59rem; }
+.document-associations__toggle > svg { color: #99a8b5; transition: transform 180ms var(--ease-ios); }
+.document-associations__toggle > svg.is-open { transform: rotate(90deg); }
+.document-associations__icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 11px; color: var(--color-primary-dark); background: var(--color-primary-light); }
+.document-associations__editor { display: grid; transform-origin: top center; gap: 8px; }
+.document-associations__editor > p { color: #9b3c36; font-size: 0.64rem; }
 .document-associations__save {
   min-height: 42px;
   border: 0;
@@ -498,7 +519,7 @@
   cursor: pointer;
 }
 .document-associations__save:disabled { cursor: default; opacity: 0.6; }
-.document-associations > a { color: var(--color-primary-dark); font-size: 0.68rem; font-weight: 800; text-align: center; }
+.document-associations__editor > a { color: var(--color-primary-dark); font-size: 0.68rem; font-weight: 800; text-align: center; }
 
 .document-upload-error {
   padding: 10px 12px;
@@ -739,7 +760,8 @@
   .document-upload-categories button,
   .document-upload-travelers button,
   .document-upload-activities button,
-  .document-associations > div button,
+  .document-associations__list button,
+  .document-associations__toggle > svg,
   .document-sheet__delete,
   .document-delete-sheet__actions button,
   .document-card { transition-duration: 0.01ms; }
