@@ -33,3 +33,4 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 ### Alterado
 
 - A associação de um documento ao roteiro passou a ficar recolhida em uma ação secundária, reduzindo a poluição visual dos detalhes.
+- A disponibilidade offline dos documentos passou a usar um controle compacto de nuvem no topo dos detalhes, verde quando existe uma cópia local.
