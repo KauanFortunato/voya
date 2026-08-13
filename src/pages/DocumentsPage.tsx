@@ -834,7 +834,7 @@ export default function DocumentsPage() {
               exit={reduceMotion ? undefined : { y: '100%' }}
               transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
             >
-              <span className="document-sheet__handle" aria-hidden="true" />
+              <span className="document-sheet__handle" aria-hidden="true" style={{ marginBottom: 44 }} />
               <button className="document-sheet__close" type="button" aria-label="Fechar" onClick={closeDocumentOverlay}>
                 <X size={19} aria-hidden="true" />
               </button>
@@ -855,18 +855,17 @@ export default function DocumentsPage() {
                             : 'Apenas na nuvem. Toque para guardar neste dispositivo'
                 return (
                   <button
-                    className={`document-offline-toggle is-${offline.status}`}
+                    className={`document-sheet__close document-offline-toggle is-${offline.status}`}
                     type="button"
                     aria-label={label}
                     title={label}
                     aria-pressed={available}
                     aria-busy={busy}
                     disabled={busy || !supported}
-                    style={{ '--offline-progress': `${offline.progress ?? 15}%` } as CSSProperties}
+                    style={{ '--offline-progress': `${offline.progress ?? 15}%`, left: 17, right: 'auto' } as CSSProperties}
                     onClick={() => void (available ? removeFromOffline(selected) : saveForOffline(selected))}
                   >
                     <Cloud size={19} aria-hidden="true" />
-                    <span className="document-offline-status" role="status">{offline.message}</span>
                   </button>
                 )
               })()}

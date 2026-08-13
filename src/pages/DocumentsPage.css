@@ -317,7 +317,6 @@
 .document-offline-toggle.is-checking,
 .document-offline-toggle.is-removing { opacity: 0.58; }
 .document-offline-toggle:disabled { cursor: default; }
-.document-offline-status { position: absolute; overflow: hidden; width: 1px; height: 1px; padding: 0; border: 0; margin: -1px; clip: rect(0 0 0 0); white-space: nowrap; }
 .document-sheet__eyebrow { color: var(--color-primary-dark); font-size: 0.65rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.08em; }
 .document-sheet h2 { max-width: calc(100% - 44px); margin-top: 4px; font-size: 1.25rem; }
 .document-sheet > p { margin-top: 3px; color: var(--color-text-secondary); font-size: 0.73rem; }
