@@ -6,7 +6,7 @@ import {
   useDragControls,
   useReducedMotion,
 } from 'motion/react'
-import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Plus, Save, Star, UserRound, UsersRound, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { updateActivityDocuments, type ApiDocument } from '../api/documents'
@@ -30,8 +30,11 @@ type DraggableActivityProps = {
   isoDate: string
   activityIndex: number
   activityCount: number
+  expanded: boolean
+  organizing: boolean
   reduceMotion: boolean
   onMove: (direction: -1 | 1) => void
+  onToggle: () => void
   onOpen: () => void
 }
 
@@ -40,18 +43,22 @@ function DraggableActivity({
   isoDate,
   activityIndex,
   activityCount,
+  expanded,
+  organizing,
   reduceMotion,
   onMove,
+  onToggle,
   onOpen,
 }: DraggableActivityProps) {
   const dragControls = useDragControls()
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address || activity.title)}`
 
   return (
     <Reorder.Item
       as="article"
-      className={`itinerary-activity${activity.isFreeSlot ? ' is-free-slot' : ''}`}
+      className={`itinerary-activity${activity.isFreeSlot ? ' is-free-slot' : ''}${expanded ? ' is-expanded' : ''}${organizing ? ' is-organizing' : ''}`}
       value={activity}
-      drag="y"
+      drag={organizing ? 'y' : false}
       dragListener={false}
       dragControls={dragControls}
       dragElastic={0.06}
@@ -67,31 +74,74 @@ function DraggableActivity({
       }
       transition={{ type: 'spring', duration: reduceMotion ? 0 : 0.22, bounce: 0 }}
     >
-      <button
-        className="itinerary-grip"
-        type="button"
-        aria-label={`Segure e arraste para reorganizar ${activity.title}`}
-        title="Segure e arraste para reorganizar"
-        onPointerDown={(event) => dragControls.start(event)}
-      >
-        <GripVertical size={18} aria-hidden="true" />
-      </button>
-      <time>
-        {activity.time}
-        {activity.endTime && <small>–{activity.endTime}</small>}
-      </time>
-      <div className="itinerary-activity__content">
-        <button className="itinerary-activity__main" type="button" onClick={onOpen}>
-          <span className="itinerary-activity__title">
-            <h2>{activity.title}</h2>
-            {activity.isImportant && <Star size={14} fill="currentColor" aria-label="Atividade importante" />}
-          </span>
-          <p>
-            {activity.isFreeSlot && activity.durationMinutes
-              ? `${formatDuration(activity.durationMinutes)} disponíveis`
-              : `${activity.category}${activity.address ? ` · ${activity.address}` : ''}`}
-          </p>
-        </button>
+      <span className={`itinerary-timeline-dot${activity.isImportant ? ' is-important' : ''}`} aria-hidden="true" />
+      <div className="itinerary-activity__card">
+        <div className="itinerary-activity__top">
+          <button className="itinerary-activity__time" type="button" onClick={onOpen} aria-label={`Editar horário de ${activity.title}`}>
+            <strong>{activity.time}</strong>
+            <span>{activity.durationMinutes ? formatDuration(activity.durationMinutes) : activity.endTime ? `até ${activity.endTime}` : 'sem duração'}</span>
+          </button>
+          <button className="itinerary-activity__summary" type="button" onClick={onToggle} aria-expanded={expanded}>
+            <span className={`itinerary-schedule-badge${activity.time === 'A definir' ? ' is-pending' : ''}`}>
+              {activity.time === 'A definir' ? 'HORÁRIO A DEFINIR' : 'HORÁRIO DEFINIDO'}
+            </span>
+            <span className="itinerary-activity__title">
+              <h2>{activity.title}</h2>
+              {activity.isImportant && <Star size={14} fill="currentColor" aria-label="Atividade importante" />}
+            </span>
+            <span className="itinerary-activity__place"><MapPin size={13} aria-hidden="true" />{activity.address || 'Local ainda não definido'}</span>
+            <span className="itinerary-activity__meta">
+              <span>{activity.category}</span>
+              {activity.documentIds?.length ? <span><Ticket size={12} aria-hidden="true" />{activity.documentIds.length} {activity.documentIds.length === 1 ? 'documento' : 'documentos'}</span> : null}
+            </span>
+          </button>
+          {organizing ? (
+            <button
+              className="itinerary-grip"
+              type="button"
+              aria-label={`Segure e arraste para reorganizar ${activity.title}`}
+              title="Segure e arraste para reorganizar"
+              onPointerDown={(event) => dragControls.start(event)}
+            >
+              <GripVertical size={18} aria-hidden="true" />
+            </button>
+          ) : (
+            <button className="itinerary-expand" type="button" onClick={onToggle} aria-label={expanded ? `Recolher ${activity.title}` : `Expandir ${activity.title}`}>
+              {expanded ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence initial={false}>
+          {expanded && !organizing && (
+            <motion.div
+              className="itinerary-activity__details"
+              initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
+              transition={{ type: 'spring', duration: reduceMotion ? 0 : 0.22, bounce: 0 }}
+            >
+              <div className="itinerary-activity__facts">
+                <div><span>Início</span><strong>{activity.time}</strong></div>
+                <div><span>Fim</span><strong>{activity.endTime ?? 'A definir'}</strong></div>
+              </div>
+              {activity.note && <p className="itinerary-activity__note">{activity.note}</p>}
+              {activity.documentIds?.length ? (
+                <Link className="itinerary-linked-documents" to={`/more/documents?document=${activity.documentIds[0]}`}>
+                  <Ticket size={16} aria-hidden="true" />
+                  <span><strong>{activity.documentIds.length} {activity.documentIds.length === 1 ? 'documento ligado' : 'documentos ligados'}</strong><small>Abrir bilhetes e reservas desta atividade</small></span>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </Link>
+              ) : null}
+              <div className="itinerary-activity__actions">
+                <a href={mapsUrl} target="_blank" rel="noreferrer"><Map size={16} aria-hidden="true" />Maps</a>
+                <button type="button" onClick={onOpen}><Pencil size={16} aria-hidden="true" />Editar</button>
+                <button type="button" onClick={onOpen}><FileText size={16} aria-hidden="true" />Documentos</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {activity.isFreeSlot && (
           <Link
             className="itinerary-free-action"
@@ -101,25 +151,28 @@ function DraggableActivity({
             Adicionar aqui
           </Link>
         )}
+
+        {organizing && (
+          <span className="itinerary-move-actions">
+            <button
+              type="button"
+              aria-label={`Mover ${activity.title} para cima`}
+              disabled={activityIndex === 0}
+              onClick={() => onMove(-1)}
+            >
+              <ChevronUp size={15} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Mover ${activity.title} para baixo`}
+              disabled={activityIndex === activityCount - 1}
+              onClick={() => onMove(1)}
+            >
+              <ChevronDown size={15} aria-hidden="true" />
+            </button>
+          </span>
+        )}
       </div>
-      <span className="itinerary-move-actions">
-        <button
-          type="button"
-          aria-label={`Mover ${activity.title} para cima`}
-          disabled={activityIndex === 0}
-          onClick={() => onMove(-1)}
-        >
-          <ChevronUp size={15} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          aria-label={`Mover ${activity.title} para baixo`}
-          disabled={activityIndex === activityCount - 1}
-          onClick={() => onMove(1)}
-        >
-          <ChevronDown size={15} aria-hidden="true" />
-        </button>
-      </span>
     </Reorder.Item>
   )
 }
@@ -361,6 +414,8 @@ export default function ItineraryPage() {
     }
   })
   const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null)
+  const [organizing, setOrganizing] = useState(false)
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
   const [creatingActivity, setCreatingActivity] = useState(false)
   const [documents, setDocuments] = useState<ApiDocument[]>([])
@@ -473,8 +528,26 @@ export default function ItineraryPage() {
       </header>
 
       <p className="itinerary-helper">
-        {tripName} · toque numa atividade para editar horários e detalhes. Os blocos azuis mostram onde ainda cabe um plano.
+        {tripName} · abra uma atividade para consultar detalhes, documentos e ações do roteiro.
       </p>
+
+      {user?.role === 'organizer' && (
+        <div className="itinerary-command-row">
+          <button
+            className={organizing ? 'is-active' : ''}
+            type="button"
+            aria-pressed={organizing}
+            onClick={() => {
+              setOrganizing((current) => !current)
+              setExpandedActivityId(null)
+            }}
+          >
+            {organizing ? <Check size={16} aria-hidden="true" /> : <GripVertical size={16} aria-hidden="true" />}
+            {organizing ? 'Concluir' : 'Reordenar'}
+          </button>
+          <span>{organizing ? 'Arraste os cartões ou use as setas' : 'Organize cada dia da viagem'}</span>
+        </div>
+      )}
 
       <AnimatePresence initial={false}>
         {syncState !== 'ready' && (
@@ -536,8 +609,11 @@ export default function ItineraryPage() {
                           isoDate={day.isoDate}
                           activityIndex={activityIndex}
                           activityCount={day.activities.length}
+                          expanded={expandedActivityId === activity.id}
+                          organizing={organizing}
                           reduceMotion={Boolean(reduceMotion)}
                           onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
+                          onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
                           onOpen={() => setEditingActivity({ dayIndex, activity })}
                         />
                       ))}
