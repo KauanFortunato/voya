@@ -4,7 +4,6 @@ import {
   BedDouble,
   BusFront,
   Check,
-  ChevronDown,
   ChevronRight,
   Download,
   FileText,
@@ -863,7 +862,7 @@ export default function DocumentsPage() {
               </div>
 
               {remoteDocuments.some((document) => document.id === selected.id) && (
-                <div className="document-associations">
+                <div className={`document-associations${associationsOpen ? ' is-open' : ''}`}>
                   <button
                     className="document-associations__toggle"
                     type="button"
@@ -872,16 +871,13 @@ export default function DocumentsPage() {
                     onClick={() => setAssociationsOpen((current) => !current)}
                   >
                     <span className="document-associations__icon"><Link2 size={17} aria-hidden="true" /></span>
-                    <span className="document-associations__summary">
-                      <strong>Associar ao roteiro</strong>
+                    <span>
+                      <strong>Ligar ao roteiro</strong>
                       <small>{selected.activityIds?.length
-                        ? `${selected.activityIds.length} ${selected.activityIds.length === 1 ? 'atividade associada' : 'atividades associadas'}`
-                        : 'Escolha atividades ou lugares desta viagem'}</small>
+                        ? `${selected.activityIds.length} ${selected.activityIds.length === 1 ? 'item ligado' : 'itens ligados'}`
+                        : 'Opcional'}</small>
                     </span>
-                    <span className="document-associations__action">
-                      {associationsOpen ? 'Ocultar opções' : 'Mostrar opções'}
-                      <ChevronDown className={associationsOpen ? 'is-open' : ''} size={16} aria-hidden="true" />
-                    </span>
+                    <ChevronRight className={associationsOpen ? 'is-open' : ''} size={18} aria-hidden="true" />
                   </button>
                   {associationsOpen && (
                     <motion.div

@@ -32,4 +32,4 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Alterado
 
-- A associação de um documento ao roteiro passou a ficar recolhida em uma ação secundária com indicação explícita para mostrar ou ocultar as opções.
+- A associação de um documento ao roteiro passou a ficar recolhida em um submenu visualmente integrado às opções exibidas.
