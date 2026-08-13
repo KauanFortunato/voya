@@ -291,6 +291,33 @@
 .document-sheet__handle { display: block; width: 36px; height: 4px; margin: 0 auto 15px; border-radius: 999px; background: #c9d4dd; }
 .document-sheet__close { position: absolute; top: 20px; right: 17px; display: grid; width: 36px; height: 36px; place-items: center; border: 0; border-radius: 50%; background: white; cursor: pointer; }
 .document-sheet__close:disabled { cursor: default; opacity: 0.5; }
+.document-details-sheet .document-sheet__handle { margin-bottom: 44px; }
+.document-details-sheet h2 { max-width: 100%; }
+.document-offline-toggle {
+  position: absolute;
+  top: 20px;
+  left: 17px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+  cursor: pointer;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), opacity 160ms var(--ease-out);
+}
+.document-offline-toggle svg { position: relative; z-index: 1; }
+.document-offline-toggle.is-downloading { background: conic-gradient(var(--color-primary) var(--offline-progress), #dce9f3 0); }
+.document-offline-toggle.is-downloading::before { position: absolute; border-radius: 50%; background: white; content: ''; inset: 3px; }
+.document-offline-toggle.is-available { color: #20785e; background: #e7f8f1; box-shadow: 0 0 0 1px rgb(32 120 94 / 14%); }
+.document-offline-toggle.is-error { color: #9b3c36; background: #fff0ee; }
+.document-offline-toggle.is-checking,
+.document-offline-toggle.is-removing { opacity: 0.58; }
+.document-offline-toggle:disabled { cursor: default; }
+.document-offline-status { position: absolute; overflow: hidden; width: 1px; height: 1px; padding: 0; border: 0; margin: -1px; clip: rect(0 0 0 0); white-space: nowrap; }
 .document-sheet__eyebrow { color: var(--color-primary-dark); font-size: 0.65rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.08em; }
 .document-sheet h2 { max-width: calc(100% - 44px); margin-top: 4px; font-size: 1.25rem; }
 .document-sheet > p { margin-top: 3px; color: var(--color-text-secondary); font-size: 0.73rem; }
@@ -624,82 +651,6 @@
   transition: transform 180ms var(--ease-out);
 }
 
-.document-offline {
-  position: relative;
-  display: grid;
-  overflow: hidden;
-  padding: 12px;
-  margin-top: 9px;
-  border-radius: 15px;
-  background: white;
-  box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
-  gap: 10px;
-}
-
-.document-offline > div {
-  display: grid;
-  min-width: 0;
-  align-items: center;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 10px;
-}
-
-.document-offline__icon {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 12px;
-  color: var(--color-primary-dark);
-  background: var(--color-primary-light);
-}
-
-.document-offline.is-available .document-offline__icon {
-  color: #20785e;
-  background: #e7f8f1;
-}
-
-.document-offline > div > span:last-child { display: grid; min-width: 0; gap: 2px; }
-.document-offline strong { font-size: 0.71rem; }
-.document-offline small { color: var(--color-text-secondary); font-size: 0.62rem; }
-.document-offline.is-error small { color: #9b3c36; }
-
-.document-offline > button {
-  min-height: 40px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--color-primary-dark);
-  background: var(--color-primary-light);
-  font-size: 0.67rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.document-offline.is-available > button {
-  color: var(--color-text-secondary);
-  background: #f1f5f8;
-}
-
-.document-offline > button:disabled { cursor: default; opacity: 0.6; }
-
-.document-offline__progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 4px;
-  background: var(--color-primary-light);
-}
-
-.document-offline__progress i {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--color-primary);
-  transform-origin: left center;
-  transition: transform 180ms var(--ease-out);
-}
-
 .document-sheet__delete {
   display: inline-flex;
   width: 100%;
@@ -754,7 +705,7 @@
 @media (prefers-reduced-motion: reduce) {
   .documents-progress i,
   .documents-upload-progress i,
-  .document-offline__progress i,
+  .document-offline-toggle,
   .document-share-progress i,
   .documents-filters button,
   .document-upload-categories button,

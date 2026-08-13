@@ -1,11 +1,11 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import {
   BedDouble,
   BusFront,
   Check,
   ChevronRight,
-  Download,
+  Cloud,
   FileText,
   Link2,
   Plane,
@@ -825,7 +825,7 @@ export default function DocumentsPage() {
               transition={{ duration: 0.18 }}
             />
             <motion.section
-              className="document-sheet"
+              className="document-sheet document-details-sheet"
               role="dialog"
               aria-modal="true"
               aria-labelledby="document-sheet-title"
@@ -838,6 +838,38 @@ export default function DocumentsPage() {
               <button className="document-sheet__close" type="button" aria-label="Fechar" onClick={closeDocumentOverlay}>
                 <X size={19} aria-hidden="true" />
               </button>
+              {selected.fileUrl && remoteDocuments.some((document) => document.id === selected.id) && (() => {
+                const offline = offlineStates[selected.id] ?? {
+                  status: 'checking' as const, progress: null, message: 'A verificar disponibilidade…',
+                }
+                const busy = offline.status === 'checking' || offline.status === 'downloading' || offline.status === 'removing'
+                const available = offline.status === 'available'
+                const supported = supportsOfflineDocuments()
+                const label = !supported
+                  ? 'Armazenamento local não disponível'
+                  : offline.status === 'checking' ? 'A verificar disponibilidade offline'
+                    : offline.status === 'downloading' ? `A guardar localmente${offline.progress === null ? '' : `, ${offline.progress}%`}`
+                      : offline.status === 'removing' ? 'A remover a cópia local'
+                        : available ? 'Guardado localmente. Toque para remover deste dispositivo'
+                          : offline.status === 'error' ? 'Não foi possível guardar localmente. Toque para tentar novamente'
+                            : 'Apenas na nuvem. Toque para guardar neste dispositivo'
+                return (
+                  <button
+                    className={`document-offline-toggle is-${offline.status}`}
+                    type="button"
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={available}
+                    aria-busy={busy}
+                    disabled={busy || !supported}
+                    style={{ '--offline-progress': `${offline.progress ?? 15}%` } as CSSProperties}
+                    onClick={() => void (available ? removeFromOffline(selected) : saveForOffline(selected))}
+                  >
+                    <Cloud size={19} aria-hidden="true" />
+                    <span className="document-offline-status" role="status">{offline.message}</span>
+                  </button>
+                )
+              })()}
               <span className="document-sheet__eyebrow">{selected.category}</span>
               <h2 id="document-sheet-title">{selected.title}</h2>
               <p>{selected.dateLabel}</p>
@@ -967,40 +999,6 @@ export default function DocumentsPage() {
               ) : (
                 <p className="document-sheet__notice">Os dados são demonstrativos. O ficheiro real será ligado à NAS na próxima etapa.</p>
               )}
-
-              {selected.fileUrl && remoteDocuments.some((document) => document.id === selected.id) && (() => {
-                const offline = offlineStates[selected.id] ?? {
-                  status: 'checking' as const, progress: null, message: 'A verificar disponibilidade…',
-                }
-                const busy = offline.status === 'checking' || offline.status === 'downloading' || offline.status === 'removing'
-                const available = offline.status === 'available'
-                return (
-                  <section className={`document-offline is-${offline.status}`} aria-live="polite" aria-busy={busy}>
-                    <div>
-                      <span className="document-offline__icon"><Download size={18} aria-hidden="true" /></span>
-                      <span><strong>Disponibilidade offline</strong><small>{offline.message}</small></span>
-                    </div>
-                    {offline.status === 'downloading' && offline.progress !== null && (
-                      <span className="document-offline__progress" role="progressbar" aria-label="Descarregar documento" aria-valuemin={0} aria-valuemax={100} aria-valuenow={offline.progress}>
-                        <i style={{ transform: `scaleX(${offline.progress / 100})` }} />
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      disabled={busy || !supportsOfflineDocuments()}
-                      onClick={() => void (available ? removeFromOffline(selected) : saveForOffline(selected))}
-                    >
-                      {offline.status === 'checking' ? 'A verificar…'
-                        : offline.status === 'downloading' ? 'A guardar…'
-                          : offline.status === 'removing' ? 'A remover…'
-                            : available ? 'Remover deste dispositivo'
-                              : offline.status === 'error' ? 'Tentar novamente'
-                                : !supportsOfflineDocuments() ? 'Não disponível'
-                                  : 'Guardar neste dispositivo'}
-                    </button>
-                  </section>
-                )
-              })()}
 
               {remoteDocuments.some((document) => document.id === selected.id) && (
                 <button className="document-sheet__delete" type="button" onClick={() => requestDocumentDeletion(selected)}>
