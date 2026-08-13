@@ -58,6 +58,10 @@ const expenseSchema = z.object({
 })
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
+const reminderPreferencesSchema = z.object({
+  enabled: z.boolean(),
+  defaultLeadMinutes: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(1440)]),
+})
 const activityTimeSchema = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).nullable()
 const activityEditorSchema = z.object({
   dayDate: z.string().date(),
@@ -225,6 +229,45 @@ async function start() {
     if (token) await sql`delete from sessions where token_hash = ${hashSessionToken(token)}`
     reply.clearCookie(sessionCookie, { path: '/' })
     return reply.code(204).send()
+  })
+
+  app.get('/api/reminder-preferences', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver as preferências' })
+
+    const [preferences] = await sql<{
+      enabled: boolean
+      defaultLeadMinutes: 15 | 30 | 60 | 1440
+      updatedAt: Date
+    }[]>`
+      select enabled, default_lead_minutes, updated_at
+      from user_reminder_preferences
+      where user_id = ${user.id}
+    `
+
+    return preferences ?? { enabled: false, defaultLeadMinutes: 30, updatedAt: null }
+  })
+
+  app.put('/api/reminder-preferences', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para alterar as preferências' })
+    const body = reminderPreferencesSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Preferências de lembrete inválidas' })
+
+    const [preferences] = await sql<{
+      enabled: boolean
+      defaultLeadMinutes: 15 | 30 | 60 | 1440
+      updatedAt: Date
+    }[]>`
+      insert into user_reminder_preferences (user_id, enabled, default_lead_minutes, updated_at)
+      values (${user.id}, ${body.data.enabled}, ${body.data.defaultLeadMinutes}, now())
+      on conflict (user_id) do update set
+        enabled = excluded.enabled,
+        default_lead_minutes = excluded.default_lead_minutes,
+        updated_at = now()
+      returning enabled, default_lead_minutes, updated_at
+    `
+    return preferences
   })
 
   app.get('/api/travelers', async (request, reply) => {
