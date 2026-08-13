@@ -72,9 +72,14 @@ const activityEditorSchema = z.object({
   address: z.string().trim().max(500),
   notes: z.string().trim().max(2000),
   isImportant: z.boolean(),
+  reminderLeadMinutes: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(1440)]).nullable(),
+  reminderRecipientIds: z.array(z.string().uuid()).max(20),
 }).superRefine((activity, context) => {
   if (activity.startTime && activity.endTime && activity.endTime <= activity.startTime) {
     context.addIssue({ code: 'custom', path: ['endTime'], message: 'O fim deve ser posterior ao início' })
+  }
+  if (activity.isImportant && activity.reminderRecipientIds.length === 0) {
+    context.addIssue({ code: 'custom', path: ['reminderRecipientIds'], message: 'Escolha pelo menos um destinatário' })
   }
 })
 const databaseUuidSchema = z.string().regex(
@@ -898,13 +903,21 @@ async function start() {
       notes: string | null
       status: 'planned' | 'current' | 'completed' | 'cancelled'
       isImportant: boolean
+      reminderLeadMinutes: 15 | 30 | 60 | 1440 | null
+      reminderRecipientIds: string[]
       position: number
       dayPosition: number
     }[]>`
       select a.id, a.source_key, a.title, a.category, td.day_date::text,
              td.city, to_char(a.starts_at at time zone 'Europe/Rome', 'HH24:MI') as time,
              to_char(a.ends_at at time zone 'Europe/Rome', 'HH24:MI') as end_time,
-             a.address, a.notes, a.status, a.is_important, a.position, td.position as day_position
+             a.address, a.notes, a.status, a.is_important, a.reminder_lead_minutes,
+             coalesce(
+               (select array_agg(arr.user_id order by arr.created_at)
+                from activity_reminder_recipients arr where arr.activity_id = a.id),
+               array[]::uuid[]
+             ) as reminder_recipient_ids,
+             a.position, td.position as day_position
       from activities a
       join trip_days td on td.id = a.trip_day_id
       where td.trip_id = ${trip.id}
@@ -928,22 +941,36 @@ async function start() {
     `
     if (!day) return reply.code(404).send({ error: 'Dia não encontrado nesta viagem' })
 
+    const recipientIds = body.data.isImportant ? [...new Set(body.data.reminderRecipientIds)] : []
+    const recipients = recipientIds.length ? await sql<{ id: string }[]>`
+      select user_id as id from trip_members
+      where trip_id = ${trip.id} and user_id in ${sql(recipientIds)}
+    ` : []
+    if (recipients.length !== recipientIds.length) {
+      return reply.code(400).send({ error: 'Um dos destinatários não pertence a esta viagem' })
+    }
+
     const activityId = randomUUID()
     const startLocal = body.data.startTime ? `${body.data.dayDate}T${body.data.startTime}:00` : null
     const endLocal = body.data.endTime ? `${body.data.dayDate}T${body.data.endTime}:00` : null
-    await sql`
-      insert into activities (
-        id, trip_day_id, title, category, starts_at, ends_at, address, notes,
-        is_important, status, position
-      ) values (
-        ${activityId}, ${day.id}, ${body.data.title}, ${body.data.category},
-        ${startLocal}::timestamp at time zone 'Europe/Rome',
-        ${endLocal}::timestamp at time zone 'Europe/Rome',
-        ${body.data.address || null}, ${body.data.notes || null},
-        ${body.data.isImportant}, 'planned',
-        (select coalesce(max(position), -1) + 1 from activities where trip_day_id = ${day.id})
-      )
-    `
+    await sql.begin(async (transaction) => {
+      await transaction`
+        insert into activities (
+          id, trip_day_id, title, category, starts_at, ends_at, address, notes,
+          is_important, reminder_lead_minutes, status, position
+        ) values (
+          ${activityId}, ${day.id}, ${body.data.title}, ${body.data.category},
+          ${startLocal}::timestamp at time zone 'Europe/Rome',
+          ${endLocal}::timestamp at time zone 'Europe/Rome',
+          ${body.data.address || null}, ${body.data.notes || null},
+          ${body.data.isImportant}, ${body.data.isImportant ? body.data.reminderLeadMinutes : null}, 'planned',
+          (select coalesce(max(position), -1) + 1 from activities where trip_day_id = ${day.id})
+        )
+      `
+      for (const recipientId of recipientIds) {
+        await transaction`insert into activity_reminder_recipients (activity_id, user_id) values (${activityId}, ${recipientId})`
+      }
+    })
     return reply.code(201).send({ id: activityId })
   })
 
@@ -965,17 +992,34 @@ async function start() {
     if (!activity) return reply.code(404).send({ error: 'Atividade não encontrada nesta viagem' })
     if (activity.dayDate !== body.data.dayDate) return reply.code(400).send({ error: 'Não é possível mover a atividade entre dias neste editor' })
 
+    const recipientIds = body.data.isImportant ? [...new Set(body.data.reminderRecipientIds)] : []
+    const recipients = recipientIds.length ? await sql<{ id: string }[]>`
+      select user_id as id from trip_members
+      where trip_id = ${trip.id} and user_id in ${sql(recipientIds)}
+    ` : []
+    if (recipients.length !== recipientIds.length) {
+      return reply.code(400).send({ error: 'Um dos destinatários não pertence a esta viagem' })
+    }
+
     const startLocal = body.data.startTime ? `${body.data.dayDate}T${body.data.startTime}:00` : null
     const endLocal = body.data.endTime ? `${body.data.dayDate}T${body.data.endTime}:00` : null
-    await sql`
-      update activities set
-        title = ${body.data.title}, category = ${body.data.category},
-        starts_at = ${startLocal}::timestamp at time zone 'Europe/Rome',
-        ends_at = ${endLocal}::timestamp at time zone 'Europe/Rome',
-        address = ${body.data.address || null}, notes = ${body.data.notes || null},
-        is_important = ${body.data.isImportant}, updated_at = now()
-      where id = ${activity.id}
-    `
+    await sql.begin(async (transaction) => {
+      await transaction`
+        update activities set
+          title = ${body.data.title}, category = ${body.data.category},
+          starts_at = ${startLocal}::timestamp at time zone 'Europe/Rome',
+          ends_at = ${endLocal}::timestamp at time zone 'Europe/Rome',
+          address = ${body.data.address || null}, notes = ${body.data.notes || null},
+          is_important = ${body.data.isImportant},
+          reminder_lead_minutes = ${body.data.isImportant ? body.data.reminderLeadMinutes : null},
+          updated_at = now()
+        where id = ${activity.id}
+      `
+      await transaction`delete from activity_reminder_recipients where activity_id = ${activity.id}`
+      for (const recipientId of recipientIds) {
+        await transaction`insert into activity_reminder_recipients (activity_id, user_id) values (${activity.id}, ${recipientId})`
+      }
+    })
     return { id: activity.id }
   })
 
