@@ -21,6 +21,7 @@ import {
   storeDocumentFile,
 } from './documents/storage.ts'
 import { verifyPassword } from './security/password.ts'
+import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
 import { contextualChecklistLimit, tripPhase } from './today/context.ts'
 
 const sessionCookie = 'voya_session'
@@ -173,8 +174,8 @@ async function start() {
   }
 
   async function getCurrentTrip(userId: string) {
-    const [trip] = await sql<{ id: string; title: string }[]>`
-      select t.id, t.title
+    const [trip] = await sql<{ id: string; title: string; timezone: string }[]>`
+      select t.id, t.title, t.timezone
       from trips t
       join trip_members tm on tm.trip_id = t.id
       where tm.user_id = ${userId}
@@ -182,6 +183,82 @@ async function start() {
       limit 1
     `
     return trip ?? null
+  }
+
+  async function reconcileActivityReminders(activityId: string, now = new Date()) {
+    await sql.begin(async (transaction) => {
+      const [activity] = await transaction<{
+        id: string
+        startsAt: Date | null
+        isImportant: boolean
+        completed: boolean
+        status: 'planned' | 'current' | 'completed' | 'cancelled'
+        reminderLeadMinutes: ReminderLeadMinutes | null
+      }[]>`
+        select a.id, a.starts_at, a.is_important, a.status, a.reminder_lead_minutes,
+               exists(select 1 from activity_completions ac where ac.activity_id = a.id) as completed
+        from activities a where a.id = ${activityId}
+      `
+
+      await transaction`
+        update reminder_jobs set status = 'cancelled', updated_at = now()
+        where activity_id = ${activityId} and status in ('scheduled', 'processing')
+      `
+      if (!activity?.isImportant || activity.completed || !activity.startsAt || !['planned', 'current'].includes(activity.status)) return
+
+      const recipients = await transaction<{
+        userId: string
+        defaultLeadMinutes: ReminderLeadMinutes
+      }[]>`
+        select arr.user_id, urp.default_lead_minutes
+        from activity_reminder_recipients arr
+        join user_reminder_preferences urp on urp.user_id = arr.user_id and urp.enabled
+        where arr.activity_id = ${activity.id}
+      `
+
+      for (const recipient of recipients) {
+        const leadMinutes = activity.reminderLeadMinutes ?? recipient.defaultLeadMinutes
+        const scheduledFor = scheduledReminderAt(activity.startsAt, leadMinutes, now)
+        if (!scheduledFor) continue
+        const deliveryKey = reminderDeliveryKey({
+          activityId: activity.id,
+          userId: recipient.userId,
+          startsAt: activity.startsAt,
+          leadMinutes,
+        })
+        await transaction`
+          insert into reminder_jobs (
+            id, activity_id, user_id, delivery_key, lead_minutes, scheduled_for, status
+          ) values (
+            ${randomUUID()}, ${activity.id}, ${recipient.userId}, ${deliveryKey},
+            ${leadMinutes}, ${scheduledFor}, 'scheduled'
+          )
+          on conflict (delivery_key) do update set
+            lead_minutes = excluded.lead_minutes,
+            scheduled_for = excluded.scheduled_for,
+            status = case when reminder_jobs.status = 'sent' then 'sent' else 'scheduled' end,
+            attempt_count = case when reminder_jobs.status = 'sent' then reminder_jobs.attempt_count else 0 end,
+            last_error = case when reminder_jobs.status = 'sent' then reminder_jobs.last_error else null end,
+            updated_at = now()
+        `
+      }
+    })
+  }
+
+  async function reconcileUserReminders(userId: string) {
+    const activities = await sql<{ id: string }[]>`
+      select arr.activity_id as id
+      from activity_reminder_recipients arr
+      where arr.user_id = ${userId}
+    `
+    for (const activity of activities) await reconcileActivityReminders(activity.id)
+  }
+
+  async function reconcileAllReminders() {
+    const activities = await sql<{ id: string }[]>`
+      select id from activities where is_important and status in ('planned', 'current')
+    `
+    for (const activity of activities) await reconcileActivityReminders(activity.id)
   }
 
   app.post('/api/auth/login', async (request, reply) => {
@@ -272,6 +349,7 @@ async function start() {
         updated_at = now()
       returning enabled, default_lead_minutes, updated_at
     `
+    await reconcileUserReminders(user.id)
     return preferences
   })
 
@@ -713,9 +791,11 @@ async function start() {
         on conflict (activity_id) do update set completed_by = excluded.completed_by, completed_at = now()
         returning completed_at
       `
+      await reconcileActivityReminders(activity.id)
       return { completed: true, completedAt: completion.completedAt, completedByName: user.displayName }
     }
     await sql`delete from activity_completions where activity_id = ${activity.id}`
+    await reconcileActivityReminders(activity.id)
     return { completed: false, completedAt: null, completedByName: null }
   })
 
@@ -909,8 +989,8 @@ async function start() {
       dayPosition: number
     }[]>`
       select a.id, a.source_key, a.title, a.category, td.day_date::text,
-             td.city, to_char(a.starts_at at time zone 'Europe/Rome', 'HH24:MI') as time,
-             to_char(a.ends_at at time zone 'Europe/Rome', 'HH24:MI') as end_time,
+             td.city, to_char(a.starts_at at time zone ${trip.timezone}, 'HH24:MI') as time,
+             to_char(a.ends_at at time zone ${trip.timezone}, 'HH24:MI') as end_time,
              a.address, a.notes, a.status, a.is_important, a.reminder_lead_minutes,
              coalesce(
                (select array_agg(arr.user_id order by arr.created_at)
@@ -960,8 +1040,8 @@ async function start() {
           is_important, reminder_lead_minutes, status, position
         ) values (
           ${activityId}, ${day.id}, ${body.data.title}, ${body.data.category},
-          ${startLocal}::timestamp at time zone 'Europe/Rome',
-          ${endLocal}::timestamp at time zone 'Europe/Rome',
+          ${startLocal}::timestamp at time zone ${trip.timezone},
+          ${endLocal}::timestamp at time zone ${trip.timezone},
           ${body.data.address || null}, ${body.data.notes || null},
           ${body.data.isImportant}, ${body.data.isImportant ? body.data.reminderLeadMinutes : null}, 'planned',
           (select coalesce(max(position), -1) + 1 from activities where trip_day_id = ${day.id})
@@ -971,6 +1051,7 @@ async function start() {
         await transaction`insert into activity_reminder_recipients (activity_id, user_id) values (${activityId}, ${recipientId})`
       }
     })
+    await reconcileActivityReminders(activityId)
     return reply.code(201).send({ id: activityId })
   })
 
@@ -1007,8 +1088,8 @@ async function start() {
       await transaction`
         update activities set
           title = ${body.data.title}, category = ${body.data.category},
-          starts_at = ${startLocal}::timestamp at time zone 'Europe/Rome',
-          ends_at = ${endLocal}::timestamp at time zone 'Europe/Rome',
+          starts_at = ${startLocal}::timestamp at time zone ${trip.timezone},
+          ends_at = ${endLocal}::timestamp at time zone ${trip.timezone},
           address = ${body.data.address || null}, notes = ${body.data.notes || null},
           is_important = ${body.data.isImportant},
           reminder_lead_minutes = ${body.data.isImportant ? body.data.reminderLeadMinutes : null},
@@ -1020,6 +1101,7 @@ async function start() {
         await transaction`insert into activity_reminder_recipients (activity_id, user_id) values (${activity.id}, ${recipientId})`
       }
     })
+    await reconcileActivityReminders(activity.id)
     return { id: activity.id }
   })
 
@@ -1298,6 +1380,7 @@ async function start() {
     }
   })
 
+  await reconcileAllReminders()
   await app.listen({ host: environment.VOYA_API_HOST, port: environment.VOYA_API_PORT })
 }
 
