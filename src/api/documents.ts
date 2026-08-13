@@ -25,6 +25,7 @@ export type ApiItineraryActivity = {
   address: string | null
   notes: string | null
   status: 'planned' | 'current' | 'completed' | 'cancelled'
+  isImportant: boolean
   position: number
   dayPosition: number
 }

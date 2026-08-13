@@ -14,6 +14,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Disponibilidade offline e compartilhamento nativo de documentos, com fallback de download.
 - Tela Hoje conectada aos dados da viagem, com atividade em destaque, linha do tempo e conclusão de atividades.
 - Checklist contextual na tela Hoje, com pendências priorizadas, conclusão direta e acesso à lista completa.
+- Criação e edição persistente de atividades do roteiro, com marcação de atividades importantes.
 
 ### Melhorado
 

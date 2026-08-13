@@ -6,11 +6,12 @@ import {
   useDragControls,
   useReducedMotion,
 } from 'motion/react'
-import { Check, ChevronDown, ChevronUp, FileText, GripVertical, Plus, Save, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, FileText, GripVertical, Plus, Save, Star, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { updateActivityDocuments, type ApiDocument } from '../api/documents'
-import { getRemoteItinerary } from '../api/itinerary'
+import { createActivity, getRemoteItinerary, updateActivity, type ActivityInput } from '../api/itinerary'
+import { useAuth } from '../auth/auth'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import {
@@ -80,7 +81,10 @@ function DraggableActivity({
       </time>
       <div className="itinerary-activity__content">
         <button className="itinerary-activity__main" type="button" onClick={onOpen}>
-          <h2>{activity.title}</h2>
+          <span className="itinerary-activity__title">
+            <h2>{activity.title}</h2>
+            {activity.isImportant && <Star size={14} fill="currentColor" aria-label="Atividade importante" />}
+          </span>
           <p>
             {activity.isFreeSlot && activity.durationMinutes
               ? `${formatDuration(activity.durationMinutes)} disponíveis`
@@ -121,18 +125,30 @@ function DraggableActivity({
 
 type ActivityEditorProps = {
   activity: CalendarActivity
+  dayDate: string
+  availableDays: CalendarDay[]
+  mode: 'create' | 'edit'
   documents: ApiDocument[]
   reduceMotion: boolean
   onClose: () => void
-  onSave: (activity: CalendarActivity, documentIds: string[]) => Promise<void>
+  onSave: (activity: CalendarActivity, documentIds: string[], dayDate: string) => Promise<void>
 }
 
-function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: ActivityEditorProps) {
+const activityCategories = [
+  ['atracao', 'Atração'], ['passeio', 'Passeio'], ['refeicao', 'Refeição'],
+  ['deslocamento', 'Deslocamento'], ['hospedagem', 'Hospedagem'], ['voo', 'Voo'],
+  ['comboio', 'Comboio'], ['tempo_livre', 'Tempo livre'],
+] as const
+
+function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode, documents, reduceMotion, onClose, onSave }: ActivityEditorProps) {
+  const [dayDate, setDayDate] = useState(initialDayDate)
   const [title, setTitle] = useState(activity.title)
+  const [categoryKey, setCategoryKey] = useState(activity.categoryKey ?? 'passeio')
   const [startTime, setStartTime] = useState(activity.time === 'A definir' ? '' : activity.time)
   const [endTime, setEndTime] = useState(activity.endTime ?? '')
   const [address, setAddress] = useState(activity.address)
   const [note, setNote] = useState(activity.note ?? '')
+  const [isImportant, setIsImportant] = useState(activity.isImportant)
   const [documentIds, setDocumentIds] = useState(activity.documentIds ?? [])
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle')
 
@@ -163,25 +179,42 @@ function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: 
           void onSave({
             ...activity,
             title: title.trim() || activity.title,
+            category: activityCategories.find(([key]) => key === categoryKey)?.[1] ?? activity.category,
+            categoryKey,
             time: startTime || 'A definir',
             endTime: endTime || undefined,
             address: address.trim(),
             note: note.trim() || undefined,
-          }, documentIds).catch(() => setSaveState('error'))
+            isImportant,
+          }, documentIds, dayDate).catch(() => setSaveState('error'))
         }}
       >
         <span className="itinerary-editor__handle" aria-hidden="true" />
         <div className="itinerary-editor__heading">
           <div>
-            <span>{activity.category}</span>
-            <h2 id="itinerary-editor-title">Editar atividade</h2>
+            <span>{mode === 'create' ? 'Novo plano' : activity.category}</span>
+            <h2 id="itinerary-editor-title">{mode === 'create' ? 'Adicionar atividade' : 'Editar atividade'}</h2>
           </div>
           <button type="button" aria-label="Fechar" onClick={onClose}><X size={19} aria-hidden="true" /></button>
         </div>
 
+        {mode === 'create' && (
+          <label className="itinerary-editor__field">
+            <span>Dia</span>
+            <select value={dayDate} onChange={(event) => setDayDate(event.target.value)} required>
+              {availableDays.map((day) => <option value={day.isoDate} key={day.isoDate}>{day.date} {day.month} · {day.city}</option>)}
+            </select>
+          </label>
+        )}
         <label className="itinerary-editor__field">
           <span>Nome</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+        </label>
+        <label className="itinerary-editor__field">
+          <span>Categoria</span>
+          <select value={categoryKey} onChange={(event) => setCategoryKey(event.target.value)}>
+            {activityCategories.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+          </select>
         </label>
         <div className="itinerary-editor__times">
           <label className="itinerary-editor__field">
@@ -202,7 +235,18 @@ function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: 
           <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
         </label>
 
-        {activity.serverId && (
+        <button
+          className={`itinerary-editor__important${isImportant ? ' is-selected' : ''}`}
+          type="button"
+          aria-pressed={isImportant}
+          onClick={() => setIsImportant((current) => !current)}
+        >
+          <Star size={19} fill={isImportant ? 'currentColor' : 'none'} aria-hidden="true" />
+          <span><strong>Atividade importante</strong><small>{isImportant ? 'Será considerada nos lembretes' : 'Marque para poder configurar lembretes'}</small></span>
+          <span className="itinerary-editor__switch" aria-hidden="true"><i /></span>
+        </button>
+
+        {mode === 'edit' && activity.serverId && (
           <fieldset className="itinerary-editor__documents" disabled={saveState === 'saving'}>
             <legend>Documentos ligados</legend>
             {documents.length ? documents.map((document) => {
@@ -228,10 +272,10 @@ function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: 
           </fieldset>
         )}
 
-        {saveState === 'error' && <p className="itinerary-editor__error" role="alert">Não foi possível guardar as ligações.</p>}
-        <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>
+        {saveState === 'error' && <p className="itinerary-editor__error" role="alert">Não foi possível guardar a atividade.</p>}
+        {mode === 'edit' && <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>}
         <button className="itinerary-editor__save" type="submit" disabled={saveState === 'saving'} aria-busy={saveState === 'saving'}>
-          <Save size={17} aria-hidden="true" />{saveState === 'saving' ? 'A guardar…' : 'Guardar alterações'}
+          <Save size={17} aria-hidden="true" />{saveState === 'saving' ? 'A guardar…' : mode === 'create' ? 'Adicionar atividade' : 'Guardar alterações'}
         </button>
       </motion.form>
     </div>
@@ -240,6 +284,7 @@ function ActivityEditor({ activity, documents, reduceMotion, onClose, onSave }: 
 
 export default function ItineraryPage() {
   const reduceMotion = useReducedMotion()
+  const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const scheduleSignature = JSON.stringify(tripDays.map((day) => [
     day.isoDate,
@@ -255,6 +300,7 @@ export default function ItineraryPage() {
   })
   const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
+  const [creatingActivity, setCreatingActivity] = useState(false)
   const [documents, setDocuments] = useState<ApiDocument[]>([])
   const [syncState, setSyncState] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -320,36 +366,33 @@ export default function ItineraryPage() {
     )
   }
 
-  const saveActivity = async (dayIndex: number, editedActivity: CalendarActivity, documentIds: string[]) => {
+  const saveActivity = async (editedActivity: CalendarActivity, documentIds: string[], dayDate: string) => {
+    const input: ActivityInput = {
+      dayDate,
+      title: editedActivity.title,
+      category: editedActivity.categoryKey ?? 'passeio',
+      startTime: editedActivity.time === 'A definir' ? null : editedActivity.time,
+      endTime: editedActivity.endTime ?? null,
+      address: editedActivity.address,
+      notes: editedActivity.note ?? '',
+      isImportant: editedActivity.isImportant,
+    }
     if (editedActivity.serverId) {
+      await updateActivity(editedActivity.serverId, input)
       await updateActivityDocuments(editedActivity.serverId, documentIds)
-      setDocuments((current) => current.map((document) => ({
-        ...document,
-        activityIds: documentIds.includes(document.id)
-          ? [...new Set([...document.activityIds, editedActivity.serverId!])]
-          : document.activityIds.filter((id) => id !== editedActivity.serverId),
-      })))
+    } else {
+      await createActivity(input)
     }
-    const toMinutes = (time?: string) => {
-      if (!time || !/^\d{2}:\d{2}$/.test(time)) return undefined
-      const [hours, minutes] = time.split(':').map(Number)
-      return hours * 60 + minutes
-    }
-    const start = toMinutes(editedActivity.time)
-    const end = toMinutes(editedActivity.endTime)
-    const durationMinutes = start !== undefined && end !== undefined && end > start
-      ? end - start
-      : undefined
-    const updatedActivity = { ...editedActivity, durationMinutes, documentIds }
-
-    setDays((current) => current.map((day, index) => {
-      if (index !== dayIndex) return day
-      const activities = day.activities.map((activity) => activity.id === updatedActivity.id ? updatedActivity : activity)
-      const freeMinutes = activities.filter((activity) => activity.isFreeSlot).reduce((total, activity) => total + (activity.durationMinutes ?? 0), 0)
-      const summary = `${activities.length} atividades${freeMinutes ? ` · ${formatDuration(freeMinutes)} livres` : ''}`
-      return { ...day, activities, freeMinutes, summary }
-    }))
+    const refreshed = await getRemoteItinerary()
+    setDays(refreshed.days)
+    setDocuments(refreshed.documents)
     setEditingActivity(null)
+    setCreatingActivity(false)
+  }
+
+  const newActivity: CalendarActivity = {
+    id: 'new-activity', title: '', category: 'Passeio', categoryKey: 'passeio',
+    time: 'A definir', address: '', isFreeSlot: false, isConfirmed: true, isImportant: false,
   }
 
   return (
@@ -359,7 +402,7 @@ export default function ItineraryPage() {
           <p>{tripDateLabel} · 10 dias</p>
           <h1>Roteiro</h1>
         </div>
-        <IconButton icon={Plus} ariaLabel="Adicionar atividade" />
+        {user?.role === 'organizer' && <IconButton icon={Plus} ariaLabel="Adicionar atividade" onClick={() => setCreatingActivity(true)} />}
       </header>
 
       <p className="itinerary-helper">
@@ -444,20 +487,38 @@ export default function ItineraryPage() {
         })}
       </div>
 
-      <button className="itinerary-add" type="button">
+      {user?.role === 'organizer' && <button className="itinerary-add" type="button" onClick={() => setCreatingActivity(true)}>
         <Plus size={18} aria-hidden="true" />
         Adicionar atividade
-      </button>
+      </button>}
 
       <ModalPortal open={Boolean(editingActivity)} onClose={() => setEditingActivity(null)}>
         {editingActivity && (
           <ActivityEditor
             key={editingActivity.activity.id}
             activity={editingActivity.activity}
+            dayDate={days[editingActivity.dayIndex].isoDate}
+            availableDays={days}
+            mode="edit"
             documents={documents}
             reduceMotion={Boolean(reduceMotion)}
             onClose={() => setEditingActivity(null)}
-            onSave={(activity, documentIds) => saveActivity(editingActivity.dayIndex, activity, documentIds)}
+            onSave={(activity, documentIds, dayDate) => saveActivity(activity, documentIds, dayDate)}
+          />
+        )}
+      </ModalPortal>
+      <ModalPortal open={creatingActivity} onClose={() => setCreatingActivity(false)}>
+        {creatingActivity && days.length > 0 && (
+          <ActivityEditor
+            key="new-activity"
+            activity={newActivity}
+            dayDate={openDays.find((date) => days.some((day) => day.isoDate === date)) ?? days[0].isoDate}
+            availableDays={days}
+            mode="create"
+            documents={documents}
+            reduceMotion={Boolean(reduceMotion)}
+            onClose={() => setCreatingActivity(false)}
+            onSave={(activity, documentIds, dayDate) => saveActivity(activity, documentIds, dayDate)}
           />
         )}
       </ModalPortal>
