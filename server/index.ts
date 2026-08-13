@@ -21,6 +21,7 @@ import {
   storeDocumentFile,
 } from './documents/storage.ts'
 import { verifyPassword } from './security/password.ts'
+import { contextualChecklistLimit, tripPhase } from './today/context.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -457,6 +458,8 @@ async function start() {
     if (!trip) return reply.code(404).send({ error: 'Viagem não encontrada' })
 
     const localDate = dateInTimezone(new Date(), trip.timezone)
+    const checklistPhase = tripPhase(localDate, trip.startDate, trip.endDate)
+    const checklistLimit = contextualChecklistLimit(checklistPhase)
     const [day] = query.data.date
       ? await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
           select id, day_date::text, city, position from trip_days
@@ -542,6 +545,37 @@ async function start() {
         coalesce(sum(amount), 0)::text as total_spent
       from expenses where trip_id = ${trip.id}
     `
+    const [checklistSummary] = await sql<{ pendingCount: string }[]>`
+      select count(*)::text as pending_count
+      from checklist_items ci
+      join checklist_groups cg on cg.id = ci.group_id
+      where cg.trip_id = ${trip.id}
+        and ci.completed_at is null
+        and (cg.owner_user_id is null or cg.owner_user_id = ${user.id})
+    `
+    const contextualChecklist = checklistLimit > 0
+      ? await sql<{
+          id: string
+          title: string
+          groupTitle: string
+          scope: 'family' | 'personal'
+          completedAt: Date | null
+          completedByName: string | null
+          position: number
+        }[]>`
+          select ci.id, ci.title, cg.title as group_title,
+                 case when cg.owner_user_id is null then 'family' else 'personal' end as scope,
+                 ci.completed_at, completed_by.display_name as completed_by_name, ci.position
+          from checklist_items ci
+          join checklist_groups cg on cg.id = ci.group_id
+          left join users completed_by on completed_by.id = ci.completed_by
+          where cg.trip_id = ${trip.id}
+            and ci.completed_at is null
+            and (cg.owner_user_id is null or cg.owner_user_id = ${user.id})
+          order by ci.position, case when cg.owner_user_id is null then 0 else 1 end, cg.position
+          limit ${checklistLimit}
+        `
+      : []
     const mode = day.dayDate === localDate ? 'today' : day.dayDate > localDate ? 'upcoming' : 'past'
     const normalizedActivities = activities.map((activity) => ({
       ...activity,
@@ -580,6 +614,11 @@ async function start() {
       },
       activities: normalizedActivities,
       highlightedActivityId: highlighted?.id ?? null,
+      checklist: {
+        phase: checklistPhase,
+        pendingCount: Number(checklistSummary?.pendingCount ?? 0),
+        items: contextualChecklist.map((item) => ({ ...item, completed: Boolean(item.completedAt) })),
+      },
       expenses: {
         spentForDay,
         totalSpent,

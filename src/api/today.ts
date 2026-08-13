@@ -27,6 +27,17 @@ export type TodayActivity = {
   documents: TodayDocument[]
 }
 
+export type TodayChecklistItem = {
+  id: string
+  title: string
+  groupTitle: string
+  scope: 'family' | 'personal'
+  completed: boolean
+  completedAt: string | null
+  completedByName: string | null
+  position: number
+}
+
 export type TodayPayload = {
   user: { id: string; displayName: string }
   trip: {
@@ -46,6 +57,11 @@ export type TodayPayload = {
   }
   activities: TodayActivity[]
   highlightedActivityId: string | null
+  checklist: {
+    phase: 'before' | 'during' | 'after'
+    pendingCount: number
+    items: TodayChecklistItem[]
+  }
   expenses: {
     spentForDay: number
     totalSpent: number

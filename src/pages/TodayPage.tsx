@@ -9,15 +9,20 @@ import {
   CircleAlert,
   Clock3,
   FileText,
+  ListChecks,
   Map,
   MapPin,
   Navigation,
   RefreshCw,
   Ticket,
+  UserRound,
+  UsersRound,
   X,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-import { getToday, setActivityCompletion, type TodayActivity, type TodayPayload } from '../api/today'
+import { setChecklistItemCompletion } from '../api/checklist'
+import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayPayload } from '../api/today'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import voyaLogo from '../assets/voya-logo.png'
@@ -52,10 +57,80 @@ function TodaySkeleton() {
       <span className="today-loading__picker" />
       <span className="today-loading__hero" />
       <span className="today-loading__summary" />
+      <span className="today-loading__checklist" />
       <span className="today-loading__section" />
       <span className="today-loading__row" />
       <span className="today-loading__row" />
     </div>
+  )
+}
+
+type ContextualChecklistProps = {
+  checklist: TodayPayload['checklist']
+  savingIds: string[]
+  error: string
+  reduceMotion: boolean | null
+  onToggle: (item: TodayChecklistItem) => void
+}
+
+function ContextualChecklist({ checklist, savingIds, error, reduceMotion, onToggle }: ContextualChecklistProps) {
+  const beforeTrip = checklist.phase === 'before'
+  const remainingVisible = checklist.items.filter((item) => !item.completed).length
+  const otherPending = Math.max(0, checklist.pendingCount - remainingVisible)
+
+  return (
+    <section className="today-checklist" aria-labelledby="today-checklist-title">
+      <div className="today-checklist__heading">
+        <span className="today-checklist__icon"><ListChecks size={20} aria-hidden="true" /></span>
+        <div>
+          <span>{beforeTrip ? 'Antes da viagem' : 'Durante a viagem'}</span>
+          <h2 id="today-checklist-title">{beforeTrip ? 'Preparação pendente' : 'Não esquecer hoje'}</h2>
+          <p>{checklist.pendingCount
+            ? `${checklist.pendingCount} ${checklist.pendingCount === 1 ? 'item pendente' : 'itens pendentes'}`
+            : 'Tudo preparado para seguir viagem'}</p>
+        </div>
+        <Link to="/more/checklist" aria-label="Abrir checklist completa">Ver tudo<ChevronRight size={15} aria-hidden="true" /></Link>
+      </div>
+
+      {checklist.items.length ? (
+        <div className="today-checklist__items">
+          {checklist.items.map((item) => {
+            const saving = savingIds.includes(item.id)
+            const ScopeIcon = item.scope === 'family' ? UsersRound : UserRound
+            return (
+              <button
+                className={`today-checklist-item${item.completed ? ' is-completed' : ''}`}
+                type="button"
+                key={item.id}
+                aria-pressed={item.completed}
+                aria-busy={saving}
+                disabled={saving}
+                onClick={() => onToggle(item)}
+              >
+                <span className="today-checklist-item__check">
+                  <AnimatePresence initial={false}>
+                    {item.completed && (
+                      <motion.span
+                        initial={reduceMotion ? false : { opacity: 0, scale: 0.9, filter: 'blur(2px)' }}
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                        exit={reduceMotion ? undefined : { opacity: 0, scale: 0.94, filter: 'blur(1px)' }}
+                        transition={{ type: 'spring', duration: 0.16, bounce: 0 }}
+                      ><Check size={13} strokeWidth={3} aria-hidden="true" /></motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+                <span><strong>{item.title}</strong><small><ScopeIcon size={12} aria-hidden="true" />{item.groupTitle}</small></span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="today-checklist__complete"><Check size={18} aria-hidden="true" /><span><strong>Nenhuma pendência</strong><small>A checklist está em dia.</small></span></div>
+      )}
+
+      {otherPending > 0 && <p className="today-checklist__more">Mais {otherPending} {otherPending === 1 ? 'item está' : 'itens estão'} na lista completa.</p>}
+      {error && <p className="today-checklist__error" role="alert">{error}</p>}
+    </section>
   )
 }
 
@@ -86,6 +161,8 @@ export default function TodayPage() {
   const [error, setError] = useState('')
   const [selectedActivity, setSelectedActivity] = useState<TodayActivity | null>(null)
   const [savingIds, setSavingIds] = useState<string[]>([])
+  const [checklistSavingIds, setChecklistSavingIds] = useState<string[]>([])
+  const [checklistError, setChecklistError] = useState('')
   const [actionError, setActionError] = useState('')
   const [dayDirection, setDayDirection] = useState(1)
 
@@ -126,6 +203,47 @@ export default function TodayPage() {
       setData((current) => current ? { ...current, activities: current.activities.map((item) => item.id === activity.id ? activity : item) } : current)
       setActionError(reason instanceof Error ? reason.message : 'Não foi possível alterar a atividade')
     } finally { setSavingIds((current) => current.filter((id) => id !== activity.id)) }
+  }
+
+  const toggleChecklistItem = async (item: TodayChecklistItem) => {
+    if (!data || checklistSavingIds.includes(item.id)) return
+    const completed = !item.completed
+    setChecklistError('')
+    setChecklistSavingIds((current) => [...current, item.id])
+    setData((current) => current ? {
+      ...current,
+      checklist: {
+        ...current.checklist,
+        pendingCount: Math.max(0, current.checklist.pendingCount + (completed ? -1 : 1)),
+        items: current.checklist.items.map((currentItem) => currentItem.id === item.id
+          ? { ...currentItem, completed }
+          : currentItem),
+      },
+    } : current)
+    try {
+      const result = await setChecklistItemCompletion(item.id, completed)
+      setData((current) => current ? {
+        ...current,
+        checklist: {
+          ...current.checklist,
+          items: current.checklist.items.map((currentItem) => currentItem.id === item.id
+            ? { ...currentItem, ...result }
+            : currentItem),
+        },
+      } : current)
+    } catch (reason) {
+      setData((current) => current ? {
+        ...current,
+        checklist: {
+          ...current.checklist,
+          pendingCount: Math.max(0, current.checklist.pendingCount + (completed ? 1 : -1)),
+          items: current.checklist.items.map((currentItem) => currentItem.id === item.id ? item : currentItem),
+        },
+      } : current)
+      setChecklistError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o item')
+    } finally {
+      setChecklistSavingIds((current) => current.filter((id) => id !== item.id))
+    }
   }
 
   const navigateToDay = (targetDate: string) => {
@@ -183,6 +301,15 @@ export default function TodayPage() {
 
           <section className="day-summary" aria-label={`${completedCount} de ${activeActivities.length} atividades concluídas`}><div><strong>{completedCount} de {activeActivities.length} atividades concluídas</strong><p>{currency.format(data.expenses.spentForDay)} gastos neste dia{data.expenses.budgetAmount > 0 ? ` · ${currency.format(Math.max(0, data.expenses.remaining))} disponíveis` : ''}</p></div><div className="progress-ring" style={{ '--progress': `${progress * 3.6}deg` } as React.CSSProperties} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span>{progress}%</span></div></section>
           {actionError && <p className="today-action-error" role="alert">{actionError}</p>}
+          {data.checklist.phase !== 'after' && (
+            <ContextualChecklist
+              checklist={data.checklist}
+              savingIds={checklistSavingIds}
+              error={checklistError}
+              reduceMotion={reduceMotion}
+              onToggle={(item) => void toggleChecklistItem(item)}
+            />
+          )}
           <section className="today-agenda" aria-labelledby="today-agenda-title"><div className="section-heading"><h2 id="today-agenda-title">Roteiro do dia</h2><span>{data.activities.length} atividades</span></div>
             {data.activities.length ? <div className="timeline">{data.activities.map((activity) => {
               const isHighlighted = activity.id === highlightedActivity?.id
