@@ -64,12 +64,15 @@
   border-radius: 18px;
   background: white;
   box-shadow: 0 0 0 1px rgb(47 128 237 / 7%);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
 }
 
 .week-strip::-webkit-scrollbar { display: none; }
 
 .week-day {
   display: flex;
+  flex: 0 0 48px;
   min-width: 48px;
   min-height: 62px;
   align-items: center;
@@ -82,6 +85,7 @@
   flex-direction: column;
   gap: 2px;
   cursor: pointer;
+  scroll-snap-align: center;
 }
 
 .week-day span {
@@ -264,6 +268,13 @@
   transform: translateX(-50%);
 }
 
+.calendar-month-day.is-selected {
+  color: white;
+  background: var(--color-primary-dark);
+}
+
+.calendar-month-day.is-selected::after { background: white; }
+
 .calendar-month-day:disabled {
   cursor: default;
 }
@@ -286,6 +297,29 @@
 .calendar-milestone strong {
   font-size: 0.82rem;
 }
+
+.calendar-loading { display: grid; gap: 12px; }
+.calendar-loading span { display: block; overflow: hidden; border-radius: 17px; background: #e5f1fa; }
+.calendar-loading span:nth-child(1) { height: 82px; }
+.calendar-loading span:nth-child(n + 2) { height: 96px; }
+
+.calendar-error {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  padding: 24px;
+  border-radius: 18px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  background: white;
+  gap: 5px;
+}
+
+.calendar-error svg { margin-bottom: 5px; color: var(--color-primary-dark); }
+.calendar-error strong { color: var(--color-text); font-size: 0.82rem; }
+.calendar-error span { font-size: 0.67rem; }
+.calendar-error button { min-height: 40px; padding: 0 12px; margin-top: 9px; border: 0; border-radius: 11px; color: white; background: var(--color-primary-dark); font-size: 0.68rem; font-weight: 800; cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) {
   .calendar-tabs button {
