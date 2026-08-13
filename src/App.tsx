@@ -31,7 +31,7 @@ const ChecklistPage = lazy(() => import('./pages/ChecklistPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
 const TravelersPage = lazy(() => import('./pages/TravelersPage'))
 const BudgetPage = lazy(() => import('./pages/BudgetPage'))
-const SectionPage = lazy(() => import('./pages/SectionPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 
 const navigation = [
@@ -118,7 +118,7 @@ function AnimatedRoutes() {
             <Route path="/more/documents" element={<DocumentsPage />} />
             <Route path="/more/budget" element={<BudgetPage />} />
             <Route path="/more/travelers" element={<TravelersPage />} />
-            <Route path="/more/settings" element={<SectionPage kicker="Voya" title="Configurações" />} />
+            <Route path="/more/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </Suspense>
