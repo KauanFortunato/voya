@@ -23,6 +23,8 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Melhorado
 
+- Roteiro redesenhado como timeline diária, com cartões expansíveis, horários, duração, local, documentos e ações contextuais usando os dados reais da viagem.
+- Reordenação do roteiro concentrada num modo explícito, deixando a leitura diária mais limpa e evitando arrastes acidentais.
 - Fluxo de entrega separado entre imagem de validação `develop` e imagem estável `latest`.
 - Inicialização do container aplica migrations pendentes antes de subir a API.
 - Navegação entre Configurações e o perfil de viajantes preserva o destino correto do botão voltar.
