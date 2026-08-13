@@ -24,5 +24,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Corrigido
 
+- Conflito de estilos do onboarding que sobrepunha os cartões da linha do tempo na primeira entrada da tela Hoje.
+- Calendário incompleto em produção; as visões de dia, semana e mês agora usam todos os dias persistidos na API.
 - Identificadores persistidos dos itens de checklist.
 - Continuidade visual ao navegar entre dias e ao terminar o carregamento da tela Hoje.
