@@ -335,6 +335,108 @@
   font-weight: 800;
 }
 
+.today-checklist {
+  padding: 14px;
+  margin-top: 14px;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+}
+
+.today-checklist__heading {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.today-checklist__icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-light);
+}
+
+.today-checklist__heading > div { display: grid; min-width: 0; gap: 1px; }
+.today-checklist__heading > div > span { color: var(--color-primary-dark); font-size: 0.57rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.07em; }
+.today-checklist__heading h2 { font-size: 0.88rem; }
+.today-checklist__heading p { color: var(--color-text-secondary); font-size: 0.62rem; }
+
+.today-checklist__heading > a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding-left: 7px;
+  color: var(--color-primary-dark);
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  gap: 2px;
+}
+
+.today-checklist__items { display: grid; margin-top: 12px; gap: 6px; }
+
+.today-checklist-item {
+  display: grid;
+  min-height: 48px;
+  align-items: center;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 13px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  color: var(--color-text);
+  text-align: left;
+  background: var(--color-background);
+  cursor: pointer;
+  gap: 8px;
+  transition: opacity 180ms var(--ease-out), background-color 180ms var(--ease-out);
+}
+
+.today-checklist-item:disabled { cursor: wait; opacity: 0.65; }
+.today-checklist-item.is-completed { opacity: 0.62; }
+.today-checklist-item.is-completed strong { text-decoration: line-through; }
+
+.today-checklist-item__check {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 2px solid #c7d7e4;
+  border-radius: 8px;
+  color: white;
+  background: white;
+  transition: border-color 180ms var(--ease-out), background-color 180ms var(--ease-out);
+}
+
+.today-checklist-item.is-completed .today-checklist-item__check { border-color: var(--color-success); background: var(--color-success); }
+.today-checklist-item__check > span { display: grid; place-items: center; }
+.today-checklist-item > span:last-child { display: grid; min-width: 0; gap: 2px; }
+.today-checklist-item strong { overflow: hidden; font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+.today-checklist-item small { display: inline-flex; align-items: center; color: var(--color-text-secondary); font-size: 0.56rem; gap: 4px; }
+
+.today-checklist__complete {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  padding: 10px 11px;
+  margin-top: 12px;
+  border-radius: 13px;
+  color: #257b62;
+  background: #e8f8f2;
+  gap: 9px;
+}
+
+.today-checklist__complete > span { display: grid; gap: 1px; }
+.today-checklist__complete strong { font-size: 0.7rem; }
+.today-checklist__complete small { font-size: 0.58rem; }
+.today-checklist__more { margin: 9px 2px 0; color: var(--color-text-secondary); font-size: 0.59rem; }
+.today-checklist__error { padding: 8px 9px; margin-top: 9px; border-radius: 10px; color: #9b3c36; background: #fff0ee; font-size: 0.61rem; }
+
 .today-agenda {
   margin-top: 24px;
 }
@@ -625,6 +727,7 @@
 .today-loading__picker { height: 58px; margin-bottom: 12px; border-radius: 17px; }
 .today-loading__hero { height: 310px; }
 .today-loading__summary { height: 76px; margin-top: 14px; border-radius: 17px; }
+.today-loading__checklist { height: 232px; margin-top: 14px; border-radius: 18px; }
 .today-loading__section { width: 148px; height: 22px; margin: 26px 0 12px; border-radius: 8px; }
 .today-loading__row { height: 112px; margin: 0 0 12px 40px; border-radius: 16px; }
 
@@ -635,6 +738,8 @@
   .today-refreshing { width: 100%; transform: none; animation: none; }
   .timeline-item__marker,
   .timeline-card,
+  .today-checklist-item,
+  .today-checklist-item__check,
   .primary-action,
   .glass-action,
   .sheet-primary-action { transition-duration: 0.01ms; }
