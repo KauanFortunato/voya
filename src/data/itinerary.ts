@@ -12,6 +12,8 @@ export type CalendarActivity = {
   isFreeSlot: boolean
   isConfirmed: boolean
   isImportant: boolean
+  reminderLeadMinutes?: 15 | 30 | 60 | 1440
+  reminderRecipientIds?: string[]
   categoryKey?: string
   serverId?: string
   documentIds?: string[]
@@ -66,6 +68,7 @@ function mapActivity(activity: RawTripActivity, isoDate: string): CalendarActivi
     isFreeSlot: activity.categoria === 'tempo_livre',
     isConfirmed: activity.status === 'confirmado',
     isImportant: false,
+    reminderRecipientIds: [],
     categoryKey: activity.categoria,
   }
 }
@@ -103,8 +106,8 @@ const fallbackDays: CalendarDay[] = [
     summary: '2 atividades · 4h livres',
     freeMinutes: 240,
     activities: [
-      { id: 'colosseum', time: '10:00', endTime: '12:00', title: 'Coliseu e Fórum Romano', category: 'Atração', categoryKey: 'atracao', address: 'Piazza del Colosseo, 1', isFreeSlot: false, isConfirmed: true, isImportant: false },
-      { id: 'free', time: '14:00', endTime: '18:00', durationMinutes: 240, title: 'Tarde livre', category: 'Tempo livre', categoryKey: 'tempo_livre', address: '', isFreeSlot: true, isConfirmed: false, isImportant: false },
+      { id: 'colosseum', time: '10:00', endTime: '12:00', title: 'Coliseu e Fórum Romano', category: 'Atração', categoryKey: 'atracao', address: 'Piazza del Colosseo, 1', isFreeSlot: false, isConfirmed: true, isImportant: false, reminderRecipientIds: [] },
+      { id: 'free', time: '14:00', endTime: '18:00', durationMinutes: 240, title: 'Tarde livre', category: 'Tempo livre', categoryKey: 'tempo_livre', address: '', isFreeSlot: true, isConfirmed: false, isImportant: false, reminderRecipientIds: [] },
     ],
   },
 ]

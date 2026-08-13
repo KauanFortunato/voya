@@ -6,11 +6,12 @@ import {
   useDragControls,
   useReducedMotion,
 } from 'motion/react'
-import { Check, ChevronDown, ChevronUp, FileText, GripVertical, Plus, Save, Star, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Plus, Save, Star, UserRound, UsersRound, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { updateActivityDocuments, type ApiDocument } from '../api/documents'
 import { createActivity, getRemoteItinerary, updateActivity, type ActivityInput } from '../api/itinerary'
+import { listTravelers, type ApiTraveler } from '../api/travelers'
 import { useAuth } from '../auth/auth'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
@@ -129,6 +130,8 @@ type ActivityEditorProps = {
   availableDays: CalendarDay[]
   mode: 'create' | 'edit'
   documents: ApiDocument[]
+  travelers: ApiTraveler[]
+  currentUserId: string
   reduceMotion: boolean
   onClose: () => void
   onSave: (activity: CalendarActivity, documentIds: string[], dayDate: string) => Promise<void>
@@ -140,7 +143,15 @@ const activityCategories = [
   ['comboio', 'Comboio'], ['tempo_livre', 'Tempo livre'],
 ] as const
 
-function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode, documents, reduceMotion, onClose, onSave }: ActivityEditorProps) {
+const reminderLeadOptions = [
+  { value: '', label: 'Usar padrão pessoal' },
+  { value: '15', label: '15 min antes' },
+  { value: '30', label: '30 min antes' },
+  { value: '60', label: '1 hora antes' },
+  { value: '1440', label: '1 dia antes' },
+] as const
+
+function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode, documents, travelers, currentUserId, reduceMotion, onClose, onSave }: ActivityEditorProps) {
   const [dayDate, setDayDate] = useState(initialDayDate)
   const [title, setTitle] = useState(activity.title)
   const [categoryKey, setCategoryKey] = useState(activity.categoryKey ?? 'passeio')
@@ -149,6 +160,10 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
   const [address, setAddress] = useState(activity.address)
   const [note, setNote] = useState(activity.note ?? '')
   const [isImportant, setIsImportant] = useState(activity.isImportant)
+  const [reminderLeadMinutes, setReminderLeadMinutes] = useState<CalendarActivity['reminderLeadMinutes']>(activity.reminderLeadMinutes)
+  const [reminderRecipientIds, setReminderRecipientIds] = useState(
+    activity.reminderRecipientIds?.length ? activity.reminderRecipientIds : [currentUserId],
+  )
   const [documentIds, setDocumentIds] = useState(activity.documentIds ?? [])
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle')
 
@@ -186,6 +201,8 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
             address: address.trim(),
             note: note.trim() || undefined,
             isImportant,
+            reminderLeadMinutes,
+            reminderRecipientIds,
           }, documentIds, dayDate).catch(() => setSaveState('error'))
         }}
       >
@@ -246,6 +263,51 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
           <span className="itinerary-editor__switch" aria-hidden="true"><i /></span>
         </button>
 
+        {isImportant && (
+          <fieldset className="itinerary-editor__reminder" disabled={saveState === 'saving'}>
+            <legend><Clock3 size={17} aria-hidden="true" />Lembrete desta atividade</legend>
+            <label className="itinerary-editor__reminder-lead">
+              <span>Quando avisar</span>
+              <select
+                value={reminderLeadMinutes ?? ''}
+                onChange={(event) => setReminderLeadMinutes(event.target.value
+                  ? Number(event.target.value) as NonNullable<CalendarActivity['reminderLeadMinutes']>
+                  : undefined)}
+              >
+                {reminderLeadOptions.map((option) => <option value={option.value} key={option.value || 'default'}>{option.label}</option>)}
+              </select>
+            </label>
+
+            <div className="itinerary-editor__recipient-heading">
+              <span>Quem será avisado</span>
+              <div>
+                <button type="button" onClick={() => setReminderRecipientIds([currentUserId])}><UserRound size={14} aria-hidden="true" />Só eu</button>
+                <button type="button" onClick={() => setReminderRecipientIds(travelers.map((traveler) => traveler.id))}><UsersRound size={14} aria-hidden="true" />Todos</button>
+              </div>
+            </div>
+            <div className="itinerary-editor__recipients">
+              {travelers.map((traveler) => {
+                const selected = reminderRecipientIds.includes(traveler.id)
+                return (
+                  <button
+                    className={selected ? 'is-selected' : ''}
+                    type="button"
+                    aria-pressed={selected}
+                    key={traveler.id}
+                    onClick={() => setReminderRecipientIds((current) => selected
+                      ? (current.length > 1 ? current.filter((id) => id !== traveler.id) : current)
+                      : [...current, traveler.id])}
+                  >
+                    <span>{traveler.displayName.slice(0, 2).toLocaleUpperCase('pt-PT')}</span>
+                    <strong>{traveler.id === currentUserId ? 'Eu' : traveler.displayName}</strong>
+                    {selected && <Check size={15} aria-hidden="true" />}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+        )}
+
         {mode === 'edit' && activity.serverId && (
           <fieldset className="itinerary-editor__documents" disabled={saveState === 'saving'}>
             <legend>Documentos ligados</legend>
@@ -302,18 +364,20 @@ export default function ItineraryPage() {
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
   const [creatingActivity, setCreatingActivity] = useState(false)
   const [documents, setDocuments] = useState<ApiDocument[]>([])
+  const [travelers, setTravelers] = useState<ApiTraveler[]>([])
   const [syncState, setSyncState] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
     const controller = new AbortController()
     setSyncState('loading')
-    void getRemoteItinerary(controller.signal).then((payload) => {
+    void Promise.all([getRemoteItinerary(controller.signal), listTravelers(controller.signal)]).then(([payload, travelerPayload]) => {
       const remoteDays = payload.days
       if (!remoteDays.length) {
         setSyncState('ready')
         return
       }
       setDocuments(payload.documents)
+      setTravelers(travelerPayload.travelers)
       setDays(remoteDays)
       const targetId = searchParams.get('activity')
       if (targetId) {
@@ -376,6 +440,8 @@ export default function ItineraryPage() {
       address: editedActivity.address,
       notes: editedActivity.note ?? '',
       isImportant: editedActivity.isImportant,
+      reminderLeadMinutes: editedActivity.isImportant ? (editedActivity.reminderLeadMinutes ?? null) : null,
+      reminderRecipientIds: editedActivity.isImportant ? (editedActivity.reminderRecipientIds ?? [user!.id]) : [],
     }
     if (editedActivity.serverId) {
       await updateActivity(editedActivity.serverId, input)
@@ -393,6 +459,7 @@ export default function ItineraryPage() {
   const newActivity: CalendarActivity = {
     id: 'new-activity', title: '', category: 'Passeio', categoryKey: 'passeio',
     time: 'A definir', address: '', isFreeSlot: false, isConfirmed: true, isImportant: false,
+    reminderRecipientIds: user ? [user.id] : [],
   }
 
   return (
@@ -501,6 +568,8 @@ export default function ItineraryPage() {
             availableDays={days}
             mode="edit"
             documents={documents}
+            travelers={travelers}
+            currentUserId={user?.id ?? ''}
             reduceMotion={Boolean(reduceMotion)}
             onClose={() => setEditingActivity(null)}
             onSave={(activity, documentIds, dayDate) => saveActivity(activity, documentIds, dayDate)}
@@ -516,6 +585,8 @@ export default function ItineraryPage() {
             availableDays={days}
             mode="create"
             documents={documents}
+            travelers={travelers}
+            currentUserId={user?.id ?? ''}
             reduceMotion={Boolean(reduceMotion)}
             onClose={() => setCreatingActivity(false)}
             onSave={(activity, documentIds, dayDate) => saveActivity(activity, documentIds, dayDate)}
