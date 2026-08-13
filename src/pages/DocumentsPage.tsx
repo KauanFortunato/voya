@@ -4,6 +4,7 @@ import {
   BedDouble,
   BusFront,
   Check,
+  ChevronDown,
   ChevronRight,
   Download,
   FileText,
@@ -871,13 +872,16 @@ export default function DocumentsPage() {
                     onClick={() => setAssociationsOpen((current) => !current)}
                   >
                     <span className="document-associations__icon"><Link2 size={17} aria-hidden="true" /></span>
-                    <span>
-                      <strong>Ligar ao roteiro</strong>
+                    <span className="document-associations__summary">
+                      <strong>Associar ao roteiro</strong>
                       <small>{selected.activityIds?.length
-                        ? `${selected.activityIds.length} ${selected.activityIds.length === 1 ? 'item ligado' : 'itens ligados'}`
-                        : 'Opcional'}</small>
+                        ? `${selected.activityIds.length} ${selected.activityIds.length === 1 ? 'atividade associada' : 'atividades associadas'}`
+                        : 'Escolha atividades ou lugares desta viagem'}</small>
                     </span>
-                    <ChevronRight className={associationsOpen ? 'is-open' : ''} size={18} aria-hidden="true" />
+                    <span className="document-associations__action">
+                      {associationsOpen ? 'Ocultar opções' : 'Mostrar opções'}
+                      <ChevronDown className={associationsOpen ? 'is-open' : ''} size={16} aria-hidden="true" />
+                    </span>
                   </button>
                   {associationsOpen && (
                     <motion.div
