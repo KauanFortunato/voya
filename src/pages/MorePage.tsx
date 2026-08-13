@@ -22,7 +22,7 @@ const menuItems = [
   { to: '/more/documents', title: 'Documentos', subtitle: 'Reservas, bilhetes e ficheiros', icon: FileText },
   { to: '/more/budget', title: 'Orçamento', subtitle: 'Despesas e divisão entre viajantes', icon: WalletCards },
   { to: '/more/travelers', title: 'Viajantes', subtitle: 'Kauan, Kairon, Helieny e Anicio', icon: Users },
-  { to: '/more/settings', title: 'Configurações', subtitle: 'Notificações, mapas e idioma', icon: Settings },
+  { to: '/more/settings', title: 'Configurações', subtitle: 'Lembretes e preferências pessoais', icon: Settings },
 ]
 
 export default function MorePage() {
