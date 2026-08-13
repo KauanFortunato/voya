@@ -206,6 +206,18 @@
   line-height: 1.25;
 }
 
+.itinerary-activity__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.itinerary-activity__title svg {
+  min-width: 14px;
+  color: #e6a61f;
+}
+
 .itinerary-activity__content {
   min-width: 0;
 }
@@ -406,7 +418,8 @@
 }
 
 .itinerary-editor__field input,
-.itinerary-editor__field textarea {
+.itinerary-editor__field textarea,
+.itinerary-editor__field select {
   width: 100%;
   border: 0;
   border-radius: 13px;
@@ -421,11 +434,43 @@
   padding: 0 12px;
 }
 
+.itinerary-editor__field select {
+  min-height: 45px;
+  padding: 0 36px 0 12px;
+}
+
 .itinerary-editor__field textarea {
   min-height: 76px;
   padding: 11px 12px;
   resize: vertical;
 }
+
+.itinerary-editor__important {
+  display: grid;
+  width: 100%;
+  min-height: 60px;
+  align-items: center;
+  padding: 9px 11px;
+  margin-top: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  grid-template-columns: 22px minmax(0, 1fr) 36px;
+  color: var(--color-text-secondary);
+  text-align: left;
+  background: white;
+  cursor: pointer;
+  gap: 9px;
+  transition: color 150ms var(--ease-out), border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+.itinerary-editor__important > span:not(.itinerary-editor__switch) { display: grid; gap: 2px; }
+.itinerary-editor__important strong { color: var(--color-text); font-size: 0.72rem; }
+.itinerary-editor__important small { font-size: 0.59rem; }
+.itinerary-editor__important.is-selected { border-color: rgb(230 166 31 / 38%); color: #b77b00; background: #fff9e9; }
+.itinerary-editor__switch { position: relative; width: 34px; height: 20px; border-radius: 999px; background: #dbe3e9; transition: background-color 150ms var(--ease-out); }
+.itinerary-editor__switch i { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgb(20 37 54 / 18%); transform: translateX(0); transition: transform 150ms var(--ease-out); }
+.itinerary-editor__important.is-selected .itinerary-editor__switch { background: #e6a61f; }
+.itinerary-editor__important.is-selected .itinerary-editor__switch i { transform: translateX(14px); }
 
 .itinerary-editor__times {
   display: grid;
@@ -494,6 +539,9 @@
   .itinerary-move-actions button,
   .itinerary-free-action,
   .itinerary-editor__documents > div > button,
+  .itinerary-editor__important,
+  .itinerary-editor__switch,
+  .itinerary-editor__switch i,
   .itinerary-editor__save,
   .itinerary-add {
     transition-duration: 0.01ms;
