@@ -22,7 +22,7 @@ import {
 } from './documents/storage.ts'
 import { verifyPassword } from './security/password.ts'
 import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
-import { contextualChecklistLimit, tripPhase } from './today/context.ts'
+import { contextualChecklistLimit, currentTripDate, tripPhase } from './today/context.ts'
 import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
 import { computeNearbyPlaceEstimates, computeTravelPreview, GoogleRoutesError, type NearbyPlaceEstimate, type TravelMode } from './maps/routes.ts'
 
@@ -627,34 +627,23 @@ async function start() {
     const localDate = dateInTimezone(new Date(), trip.timezone)
     const checklistPhase = tripPhase(localDate, trip.startDate, trip.endDate)
     const checklistLimit = contextualChecklistLimit(checklistPhase)
-    const [day] = query.data.date
-      ? await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
-          select id, day_date::text, city, position from trip_days
-          where trip_id = ${trip.id} and day_date = ${query.data.date}
-        `
-      : await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
-          select id, day_date::text, city, position from trip_days
-          where trip_id = ${trip.id}
-          order by
-            case when day_date >= ${localDate} then 0 else 1 end,
-            case when day_date >= ${localDate} then day_date end asc,
-            case when day_date < ${localDate} then day_date end desc
-          limit 1
-        `
+    const tripDays = await sql<{ id: string; dayDate: string; city: string; position: number }[]>`
+      select id, day_date::text, city, position from trip_days
+      where trip_id = ${trip.id}
+      order by position
+    `
+    const currentDayDate = currentTripDate(localDate, tripDays.map((item) => item.dayDate))
+    const currentDay = tripDays.find((item) => item.dayDate === currentDayDate)
+    const day = query.data.date
+      ? tripDays.find((item) => item.dayDate === query.data.date)
+      : currentDay
     if (!day) {
       return reply.code(404).send({ error: query.data.date ? 'Este dia não pertence à viagem' : 'O roteiro ainda não possui dias' })
     }
 
-    const [previousDay] = await sql<{ dayDate: string }[]>`
-      select day_date::text from trip_days
-      where trip_id = ${trip.id} and position < ${day.position}
-      order by position desc limit 1
-    `
-    const [nextDay] = await sql<{ dayDate: string }[]>`
-      select day_date::text from trip_days
-      where trip_id = ${trip.id} and position > ${day.position}
-      order by position asc limit 1
-    `
+    const dayIndex = tripDays.findIndex((item) => item.id === day.id)
+    const previousDay = tripDays[dayIndex - 1]
+    const nextDay = tripDays[dayIndex + 1]
     const activities = await sql<{
       id: string
       title: string
@@ -771,6 +760,8 @@ async function start() {
         endDate: trip.endDate,
         timezone: trip.timezone,
         currency: trip.baseCurrency,
+        currentDate: currentDay?.dayDate ?? day.dayDate,
+        days: tripDays.map((item) => ({ date: item.dayDate, city: item.city })),
       },
       day: {
         date: day.dayDate,

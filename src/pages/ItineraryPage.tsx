@@ -1,11 +1,11 @@
-import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react'
 import {
   AnimatePresence,
   motion,
   Reorder,
   useReducedMotion,
 } from 'motion/react'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { updateActivityDocuments, type ApiDocument } from '../api/documents'
@@ -16,6 +16,7 @@ import DocumentDetailsDialog from '../components/DocumentDetailsDialog'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import TravelPreview from '../components/TravelPreview'
+import TripDayPicker from '../components/TripDayPicker'
 import {
   tripDays,
   formatDuration,
@@ -24,89 +25,11 @@ import {
   type CalendarActivity,
   type CalendarDay,
 } from '../data/itinerary'
+import { findCurrentTripDate } from '../data/tripDates'
 import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './ItineraryPage.css'
 
 const PdfViewer = lazy(() => import('../components/PdfViewer'))
-
-type ItineraryDayPickerProps = {
-  days: CalendarDay[]
-  selectedIsoDate: string
-  reduceMotion: boolean
-  onSelectDay: (isoDate: string) => void
-}
-
-function ItineraryDayPicker({ days, selectedIsoDate, reduceMotion, onSelectDay }: ItineraryDayPickerProps) {
-  const stripRef = useRef<HTMLDivElement>(null)
-  const buttonRefs = useRef(new globalThis.Map<string, HTMLButtonElement>())
-  const selectedIndex = Math.max(0, days.findIndex((day) => day.isoDate === selectedIsoDate))
-
-  useEffect(() => {
-    const strip = stripRef.current
-    const selectedButton = buttonRefs.current.get(selectedIsoDate)
-    if (!strip || !selectedButton) return
-
-    const centeredLeft = selectedButton.offsetLeft - (strip.clientWidth - selectedButton.offsetWidth) / 2
-    const maxLeft = strip.scrollWidth - strip.clientWidth
-    strip.scrollTo({
-      left: Math.max(0, Math.min(centeredLeft, maxLeft)),
-      behavior: reduceMotion ? 'auto' : 'smooth',
-    })
-  }, [days, reduceMotion, selectedIsoDate])
-
-  const selectOffset = (offset: -1 | 1) => {
-    const target = days[selectedIndex + offset]
-    if (target) onSelectDay(target.isoDate)
-  }
-
-  return (
-    <nav className="itinerary-day-picker" aria-label="Escolher dia do roteiro">
-      <button
-        className="itinerary-day-picker__arrow is-previous"
-        type="button"
-        aria-label="Dia anterior"
-        disabled={selectedIndex === 0}
-        onClick={() => selectOffset(-1)}
-      >
-        <ChevronLeft size={19} aria-hidden="true" />
-      </button>
-      <div className="itinerary-day-picker__strip" ref={stripRef} role="tablist" aria-label={`${days.length} dias da viagem`}>
-        {days.map((day) => {
-          const selected = day.isoDate === selectedIsoDate
-          return (
-            <button
-              className={`itinerary-day-option${selected ? ' is-selected' : ''}`}
-              key={day.isoDate}
-              ref={(element) => {
-                if (element) buttonRefs.current.set(day.isoDate, element)
-                else buttonRefs.current.delete(day.isoDate)
-              }}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={`itinerary-day-${day.isoDate}`}
-              aria-label={`${day.weekday}, ${day.date} de ${day.month}, ${day.city}`}
-              onClick={() => onSelectDay(day.isoDate)}
-            >
-              <span>{day.weekday.slice(0, 3)}</span>
-              <strong>{day.date}</strong>
-              <i aria-hidden="true" />
-            </button>
-          )
-        })}
-      </div>
-      <button
-        className="itinerary-day-picker__arrow is-next"
-        type="button"
-        aria-label="Próximo dia"
-        disabled={selectedIndex === days.length - 1}
-        onClick={() => selectOffset(1)}
-      >
-        <ChevronRight size={19} aria-hidden="true" />
-      </button>
-    </nav>
-  )
-}
 
 type DraggableActivityProps = {
   activity: CalendarActivity
@@ -518,6 +441,7 @@ export default function ItineraryPage() {
       return tripDays
     }
   })
+  const [tripTimezone, setTripTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone)
   const [selectedIsoDate, setSelectedIsoDate] = useState(tripDays[0]?.isoDate ?? '')
   const [dayDirection, setDayDirection] = useState(1)
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null)
@@ -542,6 +466,7 @@ export default function ItineraryPage() {
       setDocuments(payload.documents)
       setTravelers(travelerPayload.travelers)
       setDays(remoteDays)
+      setTripTimezone(payload.trip.timezone)
       setSelectedIsoDate((current) => remoteDays.some((day) => day.isoDate === current) ? current : remoteDays[0].isoDate)
       const targetId = searchParams.get('activity')
       if (targetId) {
@@ -566,6 +491,7 @@ export default function ItineraryPage() {
 
   const selectedDayIndex = Math.max(0, days.findIndex((day) => day.isoDate === selectedIsoDate))
   const selectedDay = days[selectedDayIndex]
+  const currentTripDate = findCurrentTripDate(days, tripTimezone)
 
   const selectDay = (isoDate: string) => {
     const nextIndex = days.findIndex((day) => day.isoDate === isoDate)
@@ -680,9 +606,10 @@ export default function ItineraryPage() {
       </AnimatePresence>
 
       {days.length > 0 && (
-        <ItineraryDayPicker
-          days={days}
+        <TripDayPicker
+          days={days.map((day) => ({ isoDate: day.isoDate, city: day.city }))}
           selectedIsoDate={selectedDay.isoDate}
+          currentIsoDate={currentTripDate}
           reduceMotion={Boolean(reduceMotion)}
           onSelectDay={selectDay}
         />

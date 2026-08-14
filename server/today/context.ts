@@ -11,3 +11,7 @@ export function contextualChecklistLimit(phase: TripPhase) {
   if (phase === 'during') return 3
   return 0
 }
+
+export function currentTripDate(localDate: string, tripDates: string[]) {
+  return tripDates.find((date) => date >= localDate) ?? tripDates.at(-1) ?? null
+}

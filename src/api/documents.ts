@@ -41,7 +41,7 @@ export async function listDocuments(signal?: AbortSignal) {
   const response = await fetch('/api/documents', { signal })
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<{
-    trip: { id: string; title: string }
+    trip: { id: string; title: string; timezone: string }
     documents: ApiDocument[]
     activities: ApiItineraryActivity[]
   }>

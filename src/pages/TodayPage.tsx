@@ -4,7 +4,6 @@ import {
   Bell,
   CalendarClock,
   Check,
-  ChevronLeft,
   ChevronRight,
   CircleAlert,
   Clock3,
@@ -27,6 +26,7 @@ import DocumentDetailsDialog from '../components/DocumentDetailsDialog'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import TravelPreview from '../components/TravelPreview'
+import TripDayPicker from '../components/TripDayPicker'
 import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './TodayPage.css'
 
@@ -178,13 +178,19 @@ export default function TodayPage() {
   const [checklistError, setChecklistError] = useState('')
   const [actionError, setActionError] = useState('')
   const [dayDirection, setDayDirection] = useState(1)
+  const [selectedIsoDate, setSelectedIsoDate] = useState('')
 
-  const load = async (date?: string, signal?: AbortSignal) => {
+  const load = async (date?: string, signal?: AbortSignal, fallbackDate = '') => {
     setLoading(true); setError(''); setActionError('')
-    try { setData(await getToday(date, signal)) }
+    try {
+      const payload = await getToday(date, signal)
+      setData(payload)
+      setSelectedIsoDate(payload.day.date)
+    }
     catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return
       setError(reason instanceof Error ? reason.message : 'Não foi possível carregar este dia')
+      if (fallbackDate) setSelectedIsoDate(fallbackDate)
     } finally { if (!signal?.aborted) setLoading(false) }
   }
 
@@ -260,10 +266,11 @@ export default function TodayPage() {
   }
 
   const navigateToDay = (targetDate: string) => {
-    if (!data || loading) return
-    setDayDirection(targetDate > data.day.date ? 1 : -1)
+    if (!data || loading || targetDate === data.day.date) return
+    setDayDirection(targetDate > (selectedIsoDate || data.day.date) ? 1 : -1)
+    setSelectedIsoDate(targetDate)
     setSelectedActivity(null)
-    void load(targetDate)
+    void load(targetDate, undefined, data.day.date)
   }
 
   const dayModeLabel = data?.day.mode === 'today' ? 'Hoje' : data?.day.mode === 'upcoming' ? 'Próximo dia da viagem' : 'Dia anterior'
@@ -291,6 +298,14 @@ export default function TodayPage() {
           transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
         >
           <header className="today-header"><div className="header-info"><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
+          <TripDayPicker
+            days={data.trip.days.map((day) => ({ isoDate: day.date, city: day.city }))}
+            selectedIsoDate={selectedIsoDate || data.day.date}
+            currentIsoDate={data.trip.currentDate}
+            reduceMotion={Boolean(reduceMotion)}
+            loading={loading}
+            onSelectDay={navigateToDay}
+          />
           <AnimatePresence mode="popLayout" initial={false} custom={dayDirection}>
             <motion.div
               className="today-day-content"
@@ -301,7 +316,11 @@ export default function TodayPage() {
               exit={reduceMotion ? undefined : { opacity: 0, x: dayDirection * -5, filter: 'blur(1px)' }}
               transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
             >
-          <section className={`today-day-picker${loading ? ' is-loading' : ''}`} aria-label="Navegar entre os dias da viagem" aria-busy={loading}><button type="button" aria-label="Dia anterior" disabled={!data.day.previousDate || loading} onClick={() => data.day.previousDate && navigateToDay(data.day.previousDate)}><ChevronLeft size={17} /></button><div><span>{dayModeLabel}</span><strong>{data.day.city}</strong><small>{formatDay(data.day.date)}</small></div><button type="button" aria-label="Próximo dia" disabled={!data.day.nextDate || loading} onClick={() => data.day.nextDate && navigateToDay(data.day.nextDate)}><ChevronRight size={17} /></button>{loading && <span className="today-refreshing" role="status">A carregar outro dia…</span>}</section>
+          <section className="today-day-context" aria-label={`Dia selecionado: ${formatDay(data.day.date)}, ${data.day.city}`}>
+            <span>{dayModeLabel}</span>
+            <strong>{data.day.city}</strong>
+            <small>{formatDay(data.day.date)}</small>
+          </section>
           {error && <p className="today-action-error" role="alert">{error}</p>}
           {highlightedActivity ? <section className="next-activity" aria-labelledby="next-activity-title">
             <div className="next-activity__topline"><span>{data.day.mode === 'today' ? 'Próxima atividade' : 'Em destaque'}</span><span className="next-activity__documents"><FileText size={15} />{highlightedActivity.documents.length}</span></div>

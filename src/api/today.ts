@@ -47,6 +47,8 @@ export type TodayPayload = {
     endDate: string
     timezone: string
     currency: string
+    currentDate: string
+    days: Array<{ date: string; city: string }>
   }
   day: {
     date: string
