@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   Bell,
@@ -22,12 +22,15 @@ import {
 import { Link } from 'react-router-dom'
 
 import { setChecklistItemCompletion } from '../api/checklist'
-import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayPayload } from '../api/today'
+import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayDocument, type TodayPayload } from '../api/today'
+import DocumentDetailsDialog from '../components/DocumentDetailsDialog'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import TravelPreview from '../components/TravelPreview'
 import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './TodayPage.css'
+
+const PdfViewer = lazy(() => import('../components/PdfViewer'))
 
 const categoryLabels: Record<string, string> = {
   atracao: 'Atração', comboio: 'Comboio', deslocamento: 'Deslocamento', hospedagem: 'Hospedagem',
@@ -134,7 +137,15 @@ function ContextualChecklist({ checklist, savingIds, error, reduceMotion, onTogg
   )
 }
 
-function ActivityDetails({ activity, onClose }: { activity: TodayActivity; onClose: () => void }) {
+function ActivityDetails({
+  activity,
+  onClose,
+  onOpenDocument,
+}: {
+  activity: TodayActivity
+  onClose: () => void
+  onOpenDocument: (document: TodayDocument) => void
+}) {
   const reduceMotion = useReducedMotion()
   return (
     <motion.div className="sheet-backdrop" {...dialogBackdropMotion(reduceMotion)} onClick={onClose}>
@@ -147,7 +158,7 @@ function ActivityDetails({ activity, onClose }: { activity: TodayActivity; onClo
           {activity.address && <div><MapPin aria-hidden="true" /><span><strong>{activity.address}</strong><small>Abra no Maps para traçar a rota desde a sua localização.</small></span></div>}
           <div><FileText aria-hidden="true" /><span><strong>{activity.documents.length} {activity.documents.length === 1 ? 'documento associado' : 'documentos associados'}</strong><small>Bilhetes, reservas e comprovativos desta atividade.</small></span></div>
         </div>
-        {activity.documents.length > 0 && <div className="details-documents"><h3>Documentos</h3>{activity.documents.map((document) => <a href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer" key={document.id}><span><Ticket size={17} /><i><strong>{document.title}</strong><small>{document.category}{document.bookingCode ? ` · ${document.bookingCode}` : ''}</small></i></span><ChevronRight size={16} /></a>)}</div>}
+        {activity.documents.length > 0 && <div className="details-documents"><h3>Documentos</h3>{activity.documents.map((document) => <button type="button" key={document.id} onClick={() => onOpenDocument(document)}><span><Ticket size={17} /><i><strong>{document.title}</strong><small>{document.category}{document.bookingCode ? ` · ${document.bookingCode}` : ''}</small></i></span><ChevronRight size={16} /></button>)}</div>}
         <a className="sheet-primary-action" href={activity.mapsUrl} target="_blank" rel="noreferrer"><Navigation size={17} />Abrir no Google Maps</a>
       </motion.section>
     </motion.div>
@@ -160,6 +171,8 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedActivity, setSelectedActivity] = useState<TodayActivity | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<TodayDocument | null>(null)
+  const [viewerDocument, setViewerDocument] = useState<TodayDocument | null>(null)
   const [savingIds, setSavingIds] = useState<string[]>([])
   const [checklistSavingIds, setChecklistSavingIds] = useState<string[]>([])
   const [checklistError, setChecklistError] = useState('')
@@ -350,7 +363,32 @@ export default function TodayPage() {
         </motion.div>}
         </AnimatePresence>
       </main>
-      <ModalPortal open={Boolean(selectedActivity)} onClose={() => setSelectedActivity(null)}>{selectedActivity && <ActivityDetails activity={selectedActivity} onClose={() => setSelectedActivity(null)} />}</ModalPortal>
+      <ModalPortal open={Boolean(selectedActivity)} onClose={() => setSelectedActivity(null)}>{selectedActivity && <ActivityDetails activity={selectedActivity} onClose={() => setSelectedActivity(null)} onOpenDocument={(document) => {
+        setSelectedActivity(null)
+        setSelectedDocument(document)
+      }} />}</ModalPortal>
+      <ModalPortal open={Boolean(selectedDocument)} onClose={() => setSelectedDocument(null)}>
+        {selectedDocument && <DocumentDetailsDialog
+          document={selectedDocument}
+          onClose={() => setSelectedDocument(null)}
+          onOpenFile={() => {
+            setViewerDocument(selectedDocument)
+            setSelectedDocument(null)
+          }}
+        />}
+      </ModalPortal>
+      <ModalPortal open={Boolean(viewerDocument)} onClose={() => setViewerDocument(null)}>
+        {viewerDocument && (
+          <Suspense fallback={<div className="today-document-loading" role="status">A preparar visualizador…</div>}>
+            <PdfViewer
+              title={viewerDocument.title}
+              source={`/api/documents/${viewerDocument.id}/file`}
+              mimeType={viewerDocument.mimeType}
+              onClose={() => setViewerDocument(null)}
+            />
+          </Suspense>
+        )}
+      </ModalPortal>
     </>
   )
 }
