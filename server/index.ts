@@ -25,6 +25,7 @@ import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } fr
 import { contextualChecklistLimit, currentTripDate, tripPhase } from './today/context.ts'
 import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
 import { computeNearbyPlaceEstimates, computeTravelPreview, GoogleRoutesError, type NearbyPlaceEstimate, type TravelMode } from './maps/routes.ts'
+import { staticCacheControl } from './static-cache.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -150,7 +151,12 @@ async function start() {
   if (environment.VOYA_WEB_ROOT) {
     const webRoot = resolve(environment.VOYA_WEB_ROOT)
     if (!existsSync(webRoot)) throw new Error(`Interface web não encontrada em ${webRoot}`)
-    await app.register(staticFiles, { root: webRoot })
+    await app.register(staticFiles, {
+      root: webRoot,
+      setHeaders(reply, pathName) {
+        reply.header('Cache-Control', staticCacheControl(pathName))
+      },
+    })
   }
 
   app.addHook('onClose', async () => {
