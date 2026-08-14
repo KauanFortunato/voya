@@ -23,6 +23,8 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Mapa interativo dos lugares guardados, com marcadores filtráveis, seleção de local e abertura de rotas no Google Maps.
 - API de lugares ligada ao PostgreSQL, com coordenadas persistidas e atualização compartilhada do estado planeado.
 - Preview sob demanda entre atividades consecutivas no Roteiro e na timeline Hoje, com modos a pé, transporte público e carro, distância, duração e horário sugerido de saída calculados pela Google Routes API sem expor a chave no cliente.
+- Documentos ligados ao Roteiro abrem em diálogo sem trocar de página, com um acesso individual para cada ficheiro associado à atividade.
+- Cartões da timeline Hoje mais compactos, com horário indefinido tratado como estado e menos texto secundário.
 
 ### Melhorado
 
