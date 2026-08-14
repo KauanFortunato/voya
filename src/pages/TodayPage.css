@@ -500,10 +500,11 @@
 }
 
 .timeline-card {
-  padding: 15px;
-  border-radius: 16px;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 17px;
   background: white;
-  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 9%), 0 7px 20px rgb(31 92 151 / 6%);
   transition:
     opacity 180ms var(--ease-out),
     box-shadow 180ms var(--ease-out);
@@ -517,25 +518,61 @@
   opacity: 0.65;
 }
 
-.timeline-card time {
-  color: var(--color-text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 0.72rem;
-  font-weight: 750;
+.timeline-card__main {
+  display: grid;
+  align-items: start;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
 }
 
-.timeline-card time small { margin-left: 3px; font: inherit; }
+.timeline-card time {
+  display: grid;
+  min-height: 54px;
+  place-content: center;
+  padding: 7px 3px;
+  border-radius: 11px;
+  color: var(--color-primary-dark);
+  text-align: center;
+  background: var(--color-primary-light);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.timeline-card time strong { font-size: 0.7rem; }
+.timeline-card time small { margin-top: 5px; color: var(--color-text-secondary); font: 0.5rem/1.2 inherit; }
+
+.timeline-card__content { min-width: 0; }
+
+.timeline-card__badge {
+  display: inline-flex;
+  min-height: 19px;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  color: #267b61;
+  background: #e8f8f2;
+  font-size: 0.47rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
 
 .timeline-card h3 {
-  margin-top: 5px;
-  font-size: 0.98rem;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.25;
 }
 
 .timeline-card p {
+  display: flex;
+  align-items: flex-start;
   margin-top: 4px;
   color: var(--color-text-secondary);
-  font-size: 0.74rem;
+  font-size: 0.59rem;
+  line-height: 1.35;
+  gap: 3px;
 }
+
+.timeline-card p svg { flex: 0 0 auto; }
 
 .timeline-documents {
   display: inline-flex;
@@ -550,7 +587,9 @@
 .timeline-card__actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  padding-top: 10px;
+  margin: 10px 0 0 68px;
+  border-top: 1px solid var(--color-border);
   gap: 7px;
 }
 

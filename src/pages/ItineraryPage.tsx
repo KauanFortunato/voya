@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   AnimatePresence,
   motion,
@@ -33,7 +33,6 @@ type DraggableActivityProps = {
   activityCount: number
   expanded: boolean
   organizing: boolean
-  previousActivity?: CalendarActivity
   reduceMotion: boolean
   onMove: (direction: -1 | 1) => void
   onToggle: () => void
@@ -47,7 +46,6 @@ function DraggableActivity({
   activityCount,
   expanded,
   organizing,
-  previousActivity,
   reduceMotion,
   onMove,
   onToggle,
@@ -129,10 +127,6 @@ function DraggableActivity({
                 <div><span>Início</span><strong>{activity.time}</strong></div>
                 <div><span>Fim</span><strong>{activity.endTime ?? 'A definir'}</strong></div>
               </div>
-              {previousActivity?.serverId && previousActivity.address && activity.serverId && activity.address
-                && !previousActivity.isFreeSlot && !activity.isFreeSlot
-                ? <TravelPreview origin={previousActivity} destination={activity} />
-                : null}
               {activity.note && <p className="itinerary-activity__note">{activity.note}</p>}
               {activity.documentIds?.length ? (
                 <Link className="itinerary-linked-documents" to={`/more/documents?document=${activity.documentIds[0]}`}>
@@ -619,22 +613,35 @@ export default function ItineraryPage() {
                       values={day.activities}
                       onReorder={(activities) => reorderActivities(dayIndex, activities)}
                     >
-                      {day.activities.map((activity, activityIndex) => (
-                        <DraggableActivity
-                          key={activity.id}
-                          activity={activity}
-                          isoDate={day.isoDate}
-                          activityIndex={activityIndex}
-                          activityCount={day.activities.length}
-                          expanded={expandedActivityId === activity.id}
-                          organizing={organizing}
-                          previousActivity={activityIndex > 0 ? day.activities[activityIndex - 1] : undefined}
-                          reduceMotion={Boolean(reduceMotion)}
-                          onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
-                          onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
-                          onOpen={() => setEditingActivity({ dayIndex, activity })}
-                        />
-                      ))}
+                      {day.activities.map((activity, activityIndex) => {
+                        const previousActivity = activityIndex > 0 ? day.activities[activityIndex - 1] : undefined
+                        const showTravelPreview = !organizing
+                          && previousActivity?.serverId && previousActivity.address
+                          && activity.serverId && activity.address
+                          && !previousActivity.isFreeSlot && !activity.isFreeSlot
+                        return (
+                          <Fragment key={activity.id}>
+                            {showTravelPreview && (
+                              <TravelPreview
+                                origin={{ id: previousActivity.serverId!, title: previousActivity.title, address: previousActivity.address, time: previousActivity.time }}
+                                destination={{ id: activity.serverId!, title: activity.title, address: activity.address, time: activity.time }}
+                              />
+                            )}
+                            <DraggableActivity
+                              activity={activity}
+                              isoDate={day.isoDate}
+                              activityIndex={activityIndex}
+                              activityCount={day.activities.length}
+                              expanded={expandedActivityId === activity.id}
+                              organizing={organizing}
+                              reduceMotion={Boolean(reduceMotion)}
+                              onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
+                              onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
+                              onOpen={() => setEditingActivity({ dayIndex, activity })}
+                            />
+                          </Fragment>
+                        )
+                      })}
                     </Reorder.Group>
                     <div className={`itinerary-availability${day.freeMinutes ? ' has-free-time' : ''}`}>
                       <span>{day.freeMinutes ? 'Tempo livre identificado' : 'Disponibilidade'}</span>

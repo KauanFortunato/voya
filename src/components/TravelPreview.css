@@ -1,66 +1,50 @@
 .travel-preview {
-  padding: 9px;
-  margin-top: 9px;
-  border-radius: 12px;
-  background: linear-gradient(135deg in oklch, #f4faff, #edf8f2);
-  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  padding: 9px 10px;
+  margin: 3px 0 3px 25px;
+  border-radius: 14px;
+  background: linear-gradient(135deg in oklch, #f5faff, #edf8f2);
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 9%);
+  gap: 8px;
 }
 
-.travel-preview__heading {
+.travel-preview__summary {
   display: grid;
+  min-height: 32px;
   align-items: center;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 7px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
 }
 
-.travel-preview__heading > span {
+.travel-preview__icon {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 10px;
   color: var(--color-primary-dark);
   background: white;
-}
-
-.travel-preview__heading div {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-}
-
-.travel-preview__heading strong,
-.travel-preview__heading small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.travel-preview__heading strong {
-  font-size: 0.55rem;
-}
-
-.travel-preview__heading small {
-  color: var(--color-text-secondary);
-  font-size: 0.46rem;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
 }
 
 .travel-preview__result {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   align-items: baseline;
-  padding: 8px 2px 1px 35px;
-  gap: 4px 7px;
+  gap: 2px 7px;
 }
 
 .travel-preview__result > strong {
   color: var(--color-primary-dark);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
 }
 
 .travel-preview__result > span {
   color: var(--color-text-secondary);
-  font-size: 0.55rem;
+  font-size: 0.59rem;
 }
 
 .travel-preview__result > small {
@@ -68,14 +52,13 @@
   width: 100%;
   align-items: center;
   color: #267b61;
-  font-size: 0.52rem;
+  font-size: 0.54rem;
   font-weight: 760;
   gap: 4px;
 }
 
 .travel-preview__loading {
   display: grid;
-  padding: 9px 2px 2px 35px;
   gap: 5px;
 }
 
@@ -83,13 +66,13 @@
   position: relative;
   display: block;
   overflow: hidden;
-  height: 8px;
+  height: 9px;
   border-radius: 999px;
   background: #dcebf4;
 }
 
-.travel-preview__loading span:first-child { width: 56%; }
-.travel-preview__loading span:nth-child(2) { width: 38%; }
+.travel-preview__loading span:first-child { width: 54%; }
+.travel-preview__loading span:nth-child(2) { width: 34%; }
 
 .travel-preview__loading span::after {
   position: absolute;
@@ -100,14 +83,43 @@
   animation: travel-preview-shimmer 1.2s linear infinite;
 }
 
+.travel-preview__modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.travel-preview__modes button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--color-text-secondary);
+  background: rgb(255 255 255 / 68%);
+  font-size: 0.55rem;
+  font-weight: 760;
+  cursor: pointer;
+  gap: 4px;
+  transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.travel-preview__modes button.is-selected {
+  border-color: rgb(47 128 237 / 17%);
+  color: var(--color-primary-dark);
+  background: white;
+}
+
 .travel-preview__error {
   display: grid;
   align-items: center;
-  padding: 8px 1px 1px 35px;
   grid-template-columns: minmax(0, 1fr) auto;
   color: #a84c3f;
   gap: 6px;
-  font-size: 0.51rem;
+  font-size: 0.54rem;
 }
 
 .travel-preview__error button {
@@ -120,9 +132,15 @@
   color: #a84c3f;
   background: #fff0ed;
   gap: 4px;
-  font-size: 0.49rem;
+  font-size: 0.51rem;
   font-weight: 760;
   cursor: pointer;
+}
+
+.travel-preview__notice {
+  color: var(--color-text-secondary);
+  font-size: 0.47rem;
+  line-height: 1.35;
 }
 
 .travel-preview-visually-hidden {
@@ -134,12 +152,9 @@
   white-space: nowrap;
 }
 
-@keyframes travel-preview-shimmer {
-  to { transform: translateX(100%); }
-}
+@keyframes travel-preview-shimmer { to { transform: translateX(100%); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .travel-preview__loading span::after {
-    display: none;
-  }
+  .travel-preview__loading span::after { display: none; }
+  .travel-preview__modes button { transition: none; }
 }
