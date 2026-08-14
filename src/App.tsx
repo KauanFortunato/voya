@@ -22,10 +22,17 @@ import { useAuth } from './auth/auth'
 import TodayPage from './pages/TodayPage'
 import './App.css'
 
-const CalendarPage = lazy(() => import('./pages/CalendarPage'))
-const ItineraryPage = lazy(() => import('./pages/ItineraryPage'))
-const PlacesPage = lazy(() => import('./pages/PlacesPage'))
-const MorePage = lazy(() => import('./pages/MorePage'))
+const primaryRouteLoaders = {
+  '/calendar': () => import('./pages/CalendarPage'),
+  '/itinerary': () => import('./pages/ItineraryPage'),
+  '/places': () => import('./pages/PlacesPage'),
+  '/more': () => import('./pages/MorePage'),
+} as const
+
+const CalendarPage = lazy(primaryRouteLoaders['/calendar'])
+const ItineraryPage = lazy(primaryRouteLoaders['/itinerary'])
+const PlacesPage = lazy(primaryRouteLoaders['/places'])
+const MorePage = lazy(primaryRouteLoaders['/more'])
 const OverviewPage = lazy(() => import('./pages/OverviewPage'))
 const ChecklistPage = lazy(() => import('./pages/ChecklistPage'))
 const DocumentsPage = lazy(() => import('./pages/DocumentsPage'))
@@ -67,6 +74,12 @@ function ScrollPositionManager() {
 }
 
 function BottomNavigation() {
+  const preloadRoute = (path: string) => {
+    if (path in primaryRouteLoaders) {
+      void primaryRouteLoaders[path as keyof typeof primaryRouteLoaders]()
+    }
+  }
+
   return (
     <nav className="bottom-navigation" aria-label="Navegação principal">
       {navigation.map(({ to, label, icon: Icon }) => (
@@ -76,6 +89,9 @@ function BottomNavigation() {
           className={({ isActive }) =>
             `bottom-navigation__item${isActive ? ' is-active' : ''}`
           }
+          onFocus={() => preloadRoute(to)}
+          onPointerEnter={() => preloadRoute(to)}
+          onPointerDown={() => preloadRoute(to)}
         >
           <Icon aria-hidden="true" size={21} strokeWidth={1.9} />
           <span>{label}</span>

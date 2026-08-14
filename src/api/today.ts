@@ -77,11 +77,36 @@ async function readError(response: Response) {
   return payload?.error ?? 'Não foi possível carregar este dia'
 }
 
-export async function getToday(date?: string, signal?: AbortSignal) {
+let initialTodayRequest: Promise<TodayPayload> | null = null
+
+function requestToday(date?: string) {
   const query = date ? `?date=${encodeURIComponent(date)}` : ''
-  const response = await fetch(`/api/today${query}`, { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<TodayPayload>
+  return fetch(`/api/today${query}`).then(async (response) => {
+    if (!response.ok) throw new Error(await readError(response))
+    return response.json() as Promise<TodayPayload>
+  })
+}
+
+export function prefetchToday() {
+  if (initialTodayRequest) return
+  initialTodayRequest = requestToday().catch((error: unknown) => {
+    initialTodayRequest = null
+    throw error
+  })
+  void initialTodayRequest.catch(() => undefined)
+}
+
+export async function getToday(date?: string, signal?: AbortSignal) {
+  if (signal?.aborted) throw new DOMException('Pedido cancelado', 'AbortError')
+  const request = date ? requestToday(date) : (initialTodayRequest ?? requestToday())
+  if (!date) initialTodayRequest = request
+  try {
+    const payload = await request
+    if (signal?.aborted) throw new DOMException('Pedido cancelado', 'AbortError')
+    return payload
+  } finally {
+    if (!date && initialTodayRequest === request) initialTodayRequest = null
+  }
 }
 
 export async function setActivityCompletion(activityId: string, completed: boolean) {

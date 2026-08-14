@@ -1,4 +1,4 @@
-import { listDocuments, type ApiDocument, type ApiItineraryActivity } from './documents'
+import { invalidateDocumentsCache, listDocuments, type ApiDocument, type ApiItineraryActivity } from './documents'
 import { formatDuration, type CalendarDay } from '../data/itinerary'
 
 const categoryLabels: Record<string, string> = {
@@ -79,6 +79,7 @@ async function saveActivityRequest(path: string, method: 'POST' | 'PUT', input: 
     const payload = await response.json().catch(() => null) as { error?: string } | null
     throw new Error(payload?.error ?? 'Não foi possível guardar a atividade')
   }
+  invalidateDocumentsCache()
   return response.json() as Promise<{ id: string }>
 }
 

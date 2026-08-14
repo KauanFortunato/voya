@@ -644,7 +644,7 @@ async function start() {
     const dayIndex = tripDays.findIndex((item) => item.id === day.id)
     const previousDay = tripDays[dayIndex - 1]
     const nextDay = tripDays[dayIndex + 1]
-    const activities = await sql<{
+    const activitiesQuery = sql<{
       id: string
       title: string
       category: string
@@ -690,7 +690,7 @@ async function start() {
       order by a.position
     `
 
-    const [expenseSummary] = await sql<{
+    const expenseSummaryQuery = sql<{
       spentForDay: string
       totalSpent: string
     }[]>`
@@ -701,7 +701,7 @@ async function start() {
         coalesce(sum(amount), 0)::text as total_spent
       from expenses where trip_id = ${trip.id}
     `
-    const [checklistSummary] = await sql<{ pendingCount: string }[]>`
+    const checklistSummaryQuery = sql<{ pendingCount: string }[]>`
       select count(*)::text as pending_count
       from checklist_items ci
       join checklist_groups cg on cg.id = ci.group_id
@@ -709,8 +709,8 @@ async function start() {
         and ci.completed_at is null
         and (cg.owner_user_id is null or cg.owner_user_id = ${user.id})
     `
-    const contextualChecklist = checklistLimit > 0
-      ? await sql<{
+    const contextualChecklistQuery = checklistLimit > 0
+      ? sql<{
           id: string
           title: string
           groupTitle: string
@@ -731,7 +731,13 @@ async function start() {
           order by ci.position, case when cg.owner_user_id is null then 0 else 1 end, cg.position
           limit ${checklistLimit}
         `
-      : []
+      : Promise.resolve([])
+    const [activities, [expenseSummary], [checklistSummary], contextualChecklist] = await Promise.all([
+      activitiesQuery,
+      expenseSummaryQuery,
+      checklistSummaryQuery,
+      contextualChecklistQuery,
+    ])
     const mode = day.dayDate === localDate ? 'today' : day.dayDate > localDate ? 'upcoming' : 'past'
     const normalizedActivities = activities.map((activity) => ({
       ...activity,
@@ -1130,7 +1136,7 @@ async function start() {
     const trip = await getCurrentTrip(user.id)
     if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
 
-    const documents = await sql<{
+    const documentsQuery = sql<{
       id: string
       title: string
       category: string
@@ -1164,7 +1170,7 @@ async function start() {
       order by d.created_at desc
     `
 
-    const activities = await sql<{
+    const activitiesQuery = sql<{
       id: string
       sourceKey: string | null
       title: string
@@ -1198,6 +1204,7 @@ async function start() {
       order by td.position, a.position
     `
 
+    const [documents, activities] = await Promise.all([documentsQuery, activitiesQuery])
     return { trip, documents, activities }
   })
 

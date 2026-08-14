@@ -32,19 +32,52 @@ export type ApiItineraryActivity = {
   dayPosition: number
 }
 
+type DocumentsPayload = {
+  trip: { id: string; title: string; timezone: string }
+  documents: ApiDocument[]
+  activities: ApiItineraryActivity[]
+}
+
+const documentsCacheDurationMs = 30_000
+let documentsCache: { payload: DocumentsPayload; expiresAt: number } | null = null
+let documentsRequest: Promise<DocumentsPayload> | null = null
+let documentsCacheVersion = 0
+
+export function invalidateDocumentsCache() {
+  documentsCacheVersion += 1
+  documentsCache = null
+  documentsRequest = null
+}
+
 async function readError(response: Response) {
   const payload = await response.json().catch(() => null) as { error?: string } | null
   return payload?.error ?? 'Não foi possível carregar os documentos'
 }
 
 export async function listDocuments(signal?: AbortSignal) {
-  const response = await fetch('/api/documents', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<{
-    trip: { id: string; title: string; timezone: string }
-    documents: ApiDocument[]
-    activities: ApiItineraryActivity[]
-  }>
+  if (signal?.aborted) throw new DOMException('Pedido cancelado', 'AbortError')
+  if (documentsCache && documentsCache.expiresAt > Date.now()) return documentsCache.payload
+
+  if (!documentsRequest) {
+    const requestVersion = documentsCacheVersion
+    const pendingRequest = fetch('/api/documents')
+      .then(async (response) => {
+        if (!response.ok) throw new Error(await readError(response))
+        const payload = await response.json() as DocumentsPayload
+        if (requestVersion === documentsCacheVersion) {
+          documentsCache = { payload, expiresAt: Date.now() + documentsCacheDurationMs }
+        }
+        return payload
+      })
+    const trackedRequest = pendingRequest.finally(() => {
+      if (documentsRequest === trackedRequest) documentsRequest = null
+    })
+    documentsRequest = trackedRequest
+  }
+
+  const payload = await documentsRequest
+  if (signal?.aborted) throw new DOMException('Pedido cancelado', 'AbortError')
+  return payload
 }
 
 export function uploadDocument(
@@ -73,6 +106,7 @@ export function uploadDocument(
         // The generic message below covers invalid or empty responses.
       }
       if (request.status >= 200 && request.status < 300 && payload.document) {
+        invalidateDocumentsCache()
         onProgress(100)
         resolve(payload.document)
         return
@@ -92,6 +126,7 @@ export async function updateDocumentActivities(documentId: string, ids: string[]
     body: JSON.stringify({ ids }),
   })
   if (!response.ok) throw new Error(await readError(response))
+  invalidateDocumentsCache()
   return response.json() as Promise<{ activityIds: string[] }>
 }
 
@@ -102,10 +137,12 @@ export async function updateActivityDocuments(activityId: string, ids: string[])
     body: JSON.stringify({ ids }),
   })
   if (!response.ok) throw new Error(await readError(response))
+  invalidateDocumentsCache()
   return response.json() as Promise<{ documentIds: string[] }>
 }
 
 export async function deleteDocument(documentId: string) {
   const response = await fetch(`/api/documents/${documentId}`, { method: 'DELETE' })
   if (!response.ok) throw new Error(await readError(response))
+  invalidateDocumentsCache()
 }
