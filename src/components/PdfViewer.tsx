@@ -40,6 +40,8 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
   const [scale, setScale] = useState(1)
   const [progress, setProgress] = useState(0)
   const pinch = useRef({ initialDistance: 0, initialScale: 1, ratio: 1 })
+  const pinchPage = useRef<HTMLElement | null>(null)
+  const pinchFrame = useRef<number | null>(null)
   const collapsedY = Math.round(screenHeight * 0.53)
   const isImage = mimeType?.startsWith('image/') ?? false
 
@@ -72,23 +74,35 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
       const [first, second] = [touches[0], touches[1]]
       return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
     }
-    const previewPage = (ratio: number) => {
-      const pageElement = element.querySelector<HTMLElement>('.pdf-viewer__page-content')
+    const previewPage = () => {
+      const pageElement = pinchPage.current
       if (!pageElement) return
-      pageElement.style.transformOrigin = 'center top'
-      pageElement.style.willChange = 'transform'
-      pageElement.style.transform = `scale(${ratio})`
+      if (pinchFrame.current !== null) return
+      pinchFrame.current = window.requestAnimationFrame(() => {
+        pinchFrame.current = null
+        pageElement.style.transform = `scale(${pinch.current.ratio})`
+      })
     }
     const clearPreview = () => {
-      const pageElement = element.querySelector<HTMLElement>('.pdf-viewer__page-content')
+      if (pinchFrame.current !== null) {
+        window.cancelAnimationFrame(pinchFrame.current)
+        pinchFrame.current = null
+      }
+      const pageElement = pinchPage.current
       if (!pageElement) return
       pageElement.style.transform = ''
       pageElement.style.transformOrigin = ''
       pageElement.style.willChange = ''
+      pinchPage.current = null
     }
     const startPinch = (event: TouchEvent) => {
       if (event.touches.length !== 2) return
       event.preventDefault()
+      pinchPage.current = element.querySelector<HTMLElement>('.pdf-viewer__page-content')
+      if (pinchPage.current) {
+        pinchPage.current.style.transformOrigin = 'center top'
+        pinchPage.current.style.willChange = 'transform'
+      }
       pinch.current = {
         initialDistance: distanceBetweenTouches(event.touches),
         initialScale: scale,
@@ -101,7 +115,7 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
       const rawScale = pinch.current.initialScale * (distanceBetweenTouches(event.touches) / pinch.current.initialDistance)
       const nextScale = Math.min(2.5, Math.max(0.75, rawScale))
       pinch.current.ratio = nextScale / pinch.current.initialScale
-      previewPage(pinch.current.ratio)
+      previewPage()
     }
     const finishPinch = () => {
       if (!pinch.current.initialDistance) return

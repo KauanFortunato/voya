@@ -96,14 +96,14 @@ function AnimatedRoutes() {
   }
 
   return (
-    <AnimatePresence mode="wait" initial={false} onExitComplete={restoreDestinationScroll}>
+    <AnimatePresence mode="popLayout" initial={false} onExitComplete={restoreDestinationScroll}>
       <motion.div
         className="route-stage"
         key={location.pathname}
-        initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
-        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-        exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
-        transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
+        initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={reduceMotion ? undefined : { opacity: 0, y: -2 }}
+        transition={{ type: 'spring', duration: 0.16, bounce: 0 }}
       >
         <Suspense fallback={<ScreenSkeleton />}>
           <Routes location={location}>

@@ -486,8 +486,9 @@ export default function ItineraryPage() {
   }, [searchParams])
 
   useEffect(() => {
+    if (organizing) return
     localStorage.setItem('voya:itinerary', JSON.stringify({ signature: scheduleSignature, days }))
-  }, [days, scheduleSignature])
+  }, [days, organizing, scheduleSignature])
 
   const selectedDayIndex = Math.max(0, days.findIndex((day) => day.isoDate === selectedIsoDate))
   const selectedDay = days[selectedDayIndex]
