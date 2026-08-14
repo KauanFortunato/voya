@@ -10,6 +10,7 @@ const environmentSchema = z.object({
   VOYA_DOCUMENTS_PATH: z.string().min(1).default('./.data/documents'),
   VOYA_MAX_DOCUMENT_SIZE_MB: z.coerce.number().int().min(1).max(100).default(25),
   VOYA_WEB_ROOT: z.string().min(1).optional(),
+  GOOGLE_MAPS_SERVER_API_KEY: z.string().min(20).optional(),
 })
 
 export type Environment = z.infer<typeof environmentSchema>

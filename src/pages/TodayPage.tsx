@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   Bell,
@@ -25,6 +25,7 @@ import { setChecklistItemCompletion } from '../api/checklist'
 import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayPayload } from '../api/today'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
+import TravelPreview from '../components/TravelPreview'
 import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './TodayPage.css'
 
@@ -310,10 +311,38 @@ export default function TodayPage() {
             />
           )}
           <section className="today-agenda" aria-labelledby="today-agenda-title"><div className="section-heading"><h2 id="today-agenda-title">Roteiro do dia</h2><span>{data.activities.length} atividades</span></div>
-            {data.activities.length ? <div className="timeline">{data.activities.map((activity) => {
+            {data.activities.length ? <div className="timeline">{data.activities.map((activity, activityIndex) => {
               const isHighlighted = activity.id === highlightedActivity?.id
               const isSaving = savingIds.includes(activity.id)
-              return <article className={`timeline-item${activity.completed ? ' is-done' : ''}${isHighlighted ? ' is-current' : ''}${activity.status === 'cancelled' ? ' is-cancelled' : ''}`} key={activity.id}><span className="timeline-item__marker" aria-hidden="true">{activity.completed && <Check size={11} strokeWidth={3} />}</span><div className="timeline-card"><time>{activity.time ?? 'A definir'}{activity.endTime && <small>–{activity.endTime}</small>}</time><h3>{activity.title}</h3><p>{categoryLabels[activity.category] ?? activity.category}{activity.address ? ` · ${activity.address}` : ''}</p>{activity.documents.length > 0 && <span className="timeline-documents"><FileText size={13} />{activity.documents.length} {activity.documents.length === 1 ? 'documento' : 'documentos'}</span>}<div className="timeline-card__actions"><button type="button" onClick={() => setSelectedActivity(activity)}>Detalhes</button>{activity.status !== 'cancelled' && <button type="button" disabled={isSaving} aria-busy={isSaving} onClick={() => void toggleActivity(activity)}>{isSaving ? 'A guardar…' : activity.completed ? 'Desfazer' : 'Concluir'}</button>}</div></div></article>
+              const previousActivity = activityIndex > 0 ? data.activities[activityIndex - 1] : undefined
+              const showTravelPreview = previousActivity?.address && activity.address
+                && previousActivity.status !== 'cancelled' && activity.status !== 'cancelled'
+              return <Fragment key={activity.id}>
+                {showTravelPreview && <TravelPreview
+                  origin={{ id: previousActivity.id, title: previousActivity.title, address: previousActivity.address!, time: previousActivity.time }}
+                  destination={{ id: activity.id, title: activity.title, address: activity.address!, time: activity.time }}
+                />}
+                <article className={`timeline-item${activity.completed ? ' is-done' : ''}${isHighlighted ? ' is-current' : ''}${activity.status === 'cancelled' ? ' is-cancelled' : ''}`}>
+                  <span className="timeline-item__marker" aria-hidden="true">{activity.completed && <Check size={11} strokeWidth={3} />}</span>
+                  <div className="timeline-card">
+                    <button className="timeline-card__details" type="button" onClick={() => setSelectedActivity(activity)}>
+                      <span className="timeline-card__topline">
+                        <time className={activity.time ? '' : 'is-pending'}><Clock3 size={13} aria-hidden="true" /><strong>{activity.time ?? 'Horário por definir'}</strong>{activity.endTime && <small>– {activity.endTime}</small>}</time>
+                        <span className="timeline-card__badge">{categoryLabels[activity.category] ?? activity.category}</span>
+                        <ChevronRight size={16} aria-hidden="true" />
+                      </span>
+                      <h3>{activity.title}</h3>
+                      {activity.address && <p><MapPin size={13} aria-hidden="true" />{activity.address}</p>}
+                    </button>
+                    <div className="timeline-card__footer">
+                      {activity.documents.length > 0
+                        ? <span className="timeline-documents"><FileText size={13} />{activity.documents.length} {activity.documents.length === 1 ? 'doc.' : 'docs.'}</span>
+                        : <span />}
+                      {activity.status !== 'cancelled' && <button type="button" disabled={isSaving} aria-busy={isSaving} onClick={() => void toggleActivity(activity)}>{isSaving ? 'A guardar…' : activity.completed ? 'Desfazer' : 'Concluir'}</button>}
+                    </div>
+                  </div>
+                </article>
+              </Fragment>
             })}</div> : <div className="today-empty"><CalendarClock size={24} /><strong>Dia livre</strong><span>Nenhuma atividade foi adicionada a este dia.</span></div>}
           </section>
             </motion.div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react'
 import {
   AnimatePresence,
   motion,
@@ -14,6 +14,7 @@ import { listTravelers, type ApiTraveler } from '../api/travelers'
 import { useAuth } from '../auth/auth'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
+import TravelPreview from '../components/TravelPreview'
 import {
   tripDays,
   formatDuration,
@@ -25,6 +26,8 @@ import {
 import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './ItineraryPage.css'
 
+const PdfViewer = lazy(() => import('../components/PdfViewer'))
+
 type DraggableActivityProps = {
   activity: CalendarActivity
   isoDate: string
@@ -32,10 +35,12 @@ type DraggableActivityProps = {
   activityCount: number
   expanded: boolean
   organizing: boolean
+  linkedDocuments: ApiDocument[]
   reduceMotion: boolean
   onMove: (direction: -1 | 1) => void
   onToggle: () => void
   onOpen: () => void
+  onOpenDocument: (document: ApiDocument) => void
 }
 
 function DraggableActivity({
@@ -45,10 +50,12 @@ function DraggableActivity({
   activityCount,
   expanded,
   organizing,
+  linkedDocuments,
   reduceMotion,
   onMove,
   onToggle,
   onOpen,
+  onOpenDocument,
 }: DraggableActivityProps) {
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address || activity.title)}`
 
@@ -127,12 +134,20 @@ function DraggableActivity({
                 <div><span>Fim</span><strong>{activity.endTime ?? 'A definir'}</strong></div>
               </div>
               {activity.note && <p className="itinerary-activity__note">{activity.note}</p>}
-              {activity.documentIds?.length ? (
-                <Link className="itinerary-linked-documents" to={`/more/documents?document=${activity.documentIds[0]}`}>
-                  <Ticket size={16} aria-hidden="true" />
-                  <span><strong>{activity.documentIds.length} {activity.documentIds.length === 1 ? 'documento ligado' : 'documentos ligados'}</strong><small>Abrir bilhetes e reservas desta atividade</small></span>
-                  <ChevronDown size={15} aria-hidden="true" />
-                </Link>
+              {linkedDocuments.length ? (
+                <div className="itinerary-linked-documents" aria-label="Documentos ligados a esta atividade">
+                  <span className="itinerary-linked-documents__heading">
+                    <Ticket size={15} aria-hidden="true" />
+                    {linkedDocuments.length} {linkedDocuments.length === 1 ? 'documento ligado' : 'documentos ligados'}
+                  </span>
+                  {linkedDocuments.map((document) => (
+                    <button type="button" key={document.id} onClick={() => onOpenDocument(document)}>
+                      <FileText size={16} aria-hidden="true" />
+                      <span><strong>{document.title}</strong><small>{document.category} · abrir documento</small></span>
+                      <ChevronDown size={15} aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
               ) : null}
               <div className="itinerary-activity__actions">
                 <a href={mapsUrl} target="_blank" rel="noreferrer"><Map size={16} aria-hidden="true" />Maps</a>
@@ -175,6 +190,58 @@ function DraggableActivity({
         )}
       </div>
     </Reorder.Item>
+  )
+}
+
+function LinkedDocumentDialog({
+  document,
+  reduceMotion,
+  onClose,
+  onOpenFile,
+}: {
+  document: ApiDocument
+  reduceMotion: boolean
+  onClose: () => void
+  onOpenFile: () => void
+}) {
+  const statusLabel = document.status === 'confirmed'
+    ? 'Confirmado'
+    : document.status === 'attention' || document.status === 'expired'
+      ? 'Atenção'
+      : 'Rascunho'
+
+  return (
+    <div className="itinerary-document-layer" role="presentation">
+      <motion.button
+        className="itinerary-document-backdrop"
+        type="button"
+        aria-label="Fechar documento"
+        onClick={onClose}
+        {...dialogBackdropMotion(reduceMotion)}
+      />
+      <motion.section
+        className="itinerary-document-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="itinerary-document-title"
+        {...bottomSheetMotion(reduceMotion)}
+      >
+        <span className="itinerary-document-sheet__handle" aria-hidden="true" />
+        <button className="itinerary-document-sheet__close" type="button" aria-label="Fechar" onClick={onClose}>
+          <X size={19} aria-hidden="true" />
+        </button>
+        <span className="itinerary-document-sheet__eyebrow">{document.category}</span>
+        <h2 id="itinerary-document-title">{document.title}</h2>
+        <dl className="itinerary-document-details">
+          <div><dt>Estado</dt><dd>{statusLabel}</dd></div>
+          {document.bookingCode && <div><dt>Código</dt><dd><code>{document.bookingCode}</code></dd></div>}
+          <div><dt>Ficheiro</dt><dd>{document.originalFilename}</dd></div>
+        </dl>
+        <button className="itinerary-document-sheet__open" type="button" onClick={onOpenFile}>
+          <FileText size={17} aria-hidden="true" />Abrir documento
+        </button>
+      </motion.section>
+    </div>
   )
 }
 
@@ -429,6 +496,8 @@ export default function ItineraryPage() {
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
   const [creatingActivity, setCreatingActivity] = useState(false)
   const [documents, setDocuments] = useState<ApiDocument[]>([])
+  const [selectedDocument, setSelectedDocument] = useState<ApiDocument | null>(null)
+  const [viewerDocument, setViewerDocument] = useState<ApiDocument | null>(null)
   const [travelers, setTravelers] = useState<ApiTraveler[]>([])
   const [syncState, setSyncState] = useState<'loading' | 'ready' | 'error'>('loading')
 
@@ -612,21 +681,37 @@ export default function ItineraryPage() {
                       values={day.activities}
                       onReorder={(activities) => reorderActivities(dayIndex, activities)}
                     >
-                      {day.activities.map((activity, activityIndex) => (
-                        <DraggableActivity
-                          key={activity.id}
-                          activity={activity}
-                          isoDate={day.isoDate}
-                          activityIndex={activityIndex}
-                          activityCount={day.activities.length}
-                          expanded={expandedActivityId === activity.id}
-                          organizing={organizing}
-                          reduceMotion={Boolean(reduceMotion)}
-                          onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
-                          onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
-                          onOpen={() => setEditingActivity({ dayIndex, activity })}
-                        />
-                      ))}
+                      {day.activities.map((activity, activityIndex) => {
+                        const previousActivity = activityIndex > 0 ? day.activities[activityIndex - 1] : undefined
+                        const showTravelPreview = !organizing
+                          && previousActivity?.serverId && previousActivity.address
+                          && activity.serverId && activity.address
+                          && !previousActivity.isFreeSlot && !activity.isFreeSlot
+                        return (
+                          <Fragment key={activity.id}>
+                            {showTravelPreview && (
+                              <TravelPreview
+                                origin={{ id: previousActivity.serverId!, title: previousActivity.title, address: previousActivity.address, time: previousActivity.time }}
+                                destination={{ id: activity.serverId!, title: activity.title, address: activity.address, time: activity.time }}
+                              />
+                            )}
+                            <DraggableActivity
+                              activity={activity}
+                              isoDate={day.isoDate}
+                              activityIndex={activityIndex}
+                              activityCount={day.activities.length}
+                              expanded={expandedActivityId === activity.id}
+                              organizing={organizing}
+                              linkedDocuments={documents.filter((document) => activity.documentIds?.includes(document.id))}
+                              reduceMotion={Boolean(reduceMotion)}
+                              onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
+                              onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
+                              onOpen={() => setEditingActivity({ dayIndex, activity })}
+                              onOpenDocument={setSelectedDocument}
+                            />
+                          </Fragment>
+                        )
+                      })}
                     </Reorder.Group>
                     <div className={`itinerary-availability${day.freeMinutes ? ' has-free-time' : ''}`}>
                       <span>{day.freeMinutes ? 'Tempo livre identificado' : 'Disponibilidade'}</span>
@@ -677,6 +762,31 @@ export default function ItineraryPage() {
             onClose={() => setCreatingActivity(false)}
             onSave={(activity, documentIds, dayDate) => saveActivity(activity, documentIds, dayDate)}
           />
+        )}
+      </ModalPortal>
+      <ModalPortal open={Boolean(selectedDocument)} onClose={() => setSelectedDocument(null)}>
+        {selectedDocument && (
+          <LinkedDocumentDialog
+            document={selectedDocument}
+            reduceMotion={Boolean(reduceMotion)}
+            onClose={() => setSelectedDocument(null)}
+            onOpenFile={() => {
+              setViewerDocument(selectedDocument)
+              setSelectedDocument(null)
+            }}
+          />
+        )}
+      </ModalPortal>
+      <ModalPortal open={Boolean(viewerDocument)} onClose={() => setViewerDocument(null)}>
+        {viewerDocument && (
+          <Suspense fallback={<div className="itinerary-document-loading" role="status">A preparar visualizador…</div>}>
+            <PdfViewer
+              title={viewerDocument.title}
+              source={`/api/documents/${viewerDocument.id}/file`}
+              mimeType={viewerDocument.mimeType}
+              onClose={() => setViewerDocument(null)}
+            />
+          </Suspense>
         )}
       </ModalPortal>
     </main>
