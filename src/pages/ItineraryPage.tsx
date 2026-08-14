@@ -1,11 +1,11 @@
-import { Fragment, lazy, Suspense, useEffect, useState } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   AnimatePresence,
   motion,
   Reorder,
   useReducedMotion,
 } from 'motion/react'
-import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { updateActivityDocuments, type ApiDocument } from '../api/documents'
@@ -28,6 +28,85 @@ import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './ItineraryPage.css'
 
 const PdfViewer = lazy(() => import('../components/PdfViewer'))
+
+type ItineraryDayPickerProps = {
+  days: CalendarDay[]
+  selectedIsoDate: string
+  reduceMotion: boolean
+  onSelectDay: (isoDate: string) => void
+}
+
+function ItineraryDayPicker({ days, selectedIsoDate, reduceMotion, onSelectDay }: ItineraryDayPickerProps) {
+  const stripRef = useRef<HTMLDivElement>(null)
+  const buttonRefs = useRef(new globalThis.Map<string, HTMLButtonElement>())
+  const selectedIndex = Math.max(0, days.findIndex((day) => day.isoDate === selectedIsoDate))
+
+  useEffect(() => {
+    const strip = stripRef.current
+    const selectedButton = buttonRefs.current.get(selectedIsoDate)
+    if (!strip || !selectedButton) return
+
+    const centeredLeft = selectedButton.offsetLeft - (strip.clientWidth - selectedButton.offsetWidth) / 2
+    const maxLeft = strip.scrollWidth - strip.clientWidth
+    strip.scrollTo({
+      left: Math.max(0, Math.min(centeredLeft, maxLeft)),
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    })
+  }, [days, reduceMotion, selectedIsoDate])
+
+  const selectOffset = (offset: -1 | 1) => {
+    const target = days[selectedIndex + offset]
+    if (target) onSelectDay(target.isoDate)
+  }
+
+  return (
+    <nav className="itinerary-day-picker" aria-label="Escolher dia do roteiro">
+      <button
+        className="itinerary-day-picker__arrow is-previous"
+        type="button"
+        aria-label="Dia anterior"
+        disabled={selectedIndex === 0}
+        onClick={() => selectOffset(-1)}
+      >
+        <ChevronLeft size={19} aria-hidden="true" />
+      </button>
+      <div className="itinerary-day-picker__strip" ref={stripRef} role="tablist" aria-label={`${days.length} dias da viagem`}>
+        {days.map((day) => {
+          const selected = day.isoDate === selectedIsoDate
+          return (
+            <button
+              className={`itinerary-day-option${selected ? ' is-selected' : ''}`}
+              key={day.isoDate}
+              ref={(element) => {
+                if (element) buttonRefs.current.set(day.isoDate, element)
+                else buttonRefs.current.delete(day.isoDate)
+              }}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`itinerary-day-${day.isoDate}`}
+              aria-label={`${day.weekday}, ${day.date} de ${day.month}, ${day.city}`}
+              onClick={() => onSelectDay(day.isoDate)}
+            >
+              <span>{day.weekday.slice(0, 3)}</span>
+              <strong>{day.date}</strong>
+              <i aria-hidden="true" />
+            </button>
+          )
+        })}
+      </div>
+      <button
+        className="itinerary-day-picker__arrow is-next"
+        type="button"
+        aria-label="Próximo dia"
+        disabled={selectedIndex === days.length - 1}
+        onClick={() => selectOffset(1)}
+      >
+        <ChevronRight size={19} aria-hidden="true" />
+      </button>
+    </nav>
+  )
+}
 
 type DraggableActivityProps = {
   activity: CalendarActivity
@@ -439,7 +518,8 @@ export default function ItineraryPage() {
       return tripDays
     }
   })
-  const [openDays, setOpenDays] = useState<string[]>([tripDays[0]?.isoDate ?? ''])
+  const [selectedIsoDate, setSelectedIsoDate] = useState(tripDays[0]?.isoDate ?? '')
+  const [dayDirection, setDayDirection] = useState(1)
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null)
   const [organizing, setOrganizing] = useState(false)
   const [editingActivity, setEditingActivity] = useState<{ dayIndex: number; activity: CalendarActivity } | null>(null)
@@ -462,12 +542,13 @@ export default function ItineraryPage() {
       setDocuments(payload.documents)
       setTravelers(travelerPayload.travelers)
       setDays(remoteDays)
+      setSelectedIsoDate((current) => remoteDays.some((day) => day.isoDate === current) ? current : remoteDays[0].isoDate)
       const targetId = searchParams.get('activity')
       if (targetId) {
         const dayIndex = remoteDays.findIndex((day) => day.activities.some((activity) => activity.serverId === targetId))
         const activity = dayIndex >= 0 ? remoteDays[dayIndex].activities.find((item) => item.serverId === targetId) : undefined
         if (activity) {
-          setOpenDays((current) => current.includes(remoteDays[dayIndex].isoDate) ? current : [...current, remoteDays[dayIndex].isoDate])
+          setSelectedIsoDate(remoteDays[dayIndex].isoDate)
           setEditingActivity({ dayIndex, activity })
         }
       }
@@ -483,10 +564,15 @@ export default function ItineraryPage() {
     localStorage.setItem('voya:itinerary', JSON.stringify({ signature: scheduleSignature, days }))
   }, [days, scheduleSignature])
 
-  const toggleDay = (date: string) => {
-    setOpenDays((current) =>
-      current.includes(date) ? current.filter((item) => item !== date) : [...current, date],
-    )
+  const selectedDayIndex = Math.max(0, days.findIndex((day) => day.isoDate === selectedIsoDate))
+  const selectedDay = days[selectedDayIndex]
+
+  const selectDay = (isoDate: string) => {
+    const nextIndex = days.findIndex((day) => day.isoDate === isoDate)
+    if (nextIndex < 0 || isoDate === selectedIsoDate) return
+    setDayDirection(nextIndex > selectedDayIndex ? 1 : -1)
+    setSelectedIsoDate(isoDate)
+    setExpandedActivityId(null)
   }
 
   const moveActivity = (dayIndex: number, activityIndex: number, direction: -1 | 1) => {
@@ -535,6 +621,7 @@ export default function ItineraryPage() {
     const refreshed = await getRemoteItinerary()
     setDays(refreshed.days)
     setDocuments(refreshed.documents)
+    setSelectedIsoDate(dayDate)
     setEditingActivity(null)
     setCreatingActivity(false)
   }
@@ -592,87 +679,89 @@ export default function ItineraryPage() {
         )}
       </AnimatePresence>
 
-      <div className="itinerary-days">
-        {days.map((day, dayIndex) => {
-          const isOpen = openDays.includes(day.isoDate)
-          return (
-            <section className={`itinerary-day${isOpen ? ' is-open' : ''}`} key={day.isoDate}>
-              <button
-                className="itinerary-day__header"
-                type="button"
-                aria-expanded={isOpen}
-                aria-controls={`itinerary-day-${day.isoDate}`}
-                onClick={() => toggleDay(day.isoDate)}
-              >
-                <span className="itinerary-date"><strong>{day.date}</strong><small>{day.month}</small></span>
-                <span className="itinerary-day__summary">
-                  <small>{day.weekday}</small>
-                  <strong>{day.city}</strong>
-                  <span>{day.transport ?? day.summary}</span>
-                </span>
-                {isOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-              </button>
+      {days.length > 0 && (
+        <ItineraryDayPicker
+          days={days}
+          selectedIsoDate={selectedDay.isoDate}
+          reduceMotion={Boolean(reduceMotion)}
+          onSelectDay={selectDay}
+        />
+      )}
 
-              <AnimatePresence initial={false}>
-                {isOpen && (
-                  <motion.div
-                    className="itinerary-day__body"
-                    id={`itinerary-day-${day.isoDate}`}
-                    initial={reduceMotion ? false : { opacity: 0, y: -6, filter: 'blur(2px)' }}
-                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    exit={reduceMotion ? undefined : { opacity: 0, y: -3, filter: 'blur(1px)' }}
-                    transition={{ type: 'spring', duration: 0.24, bounce: 0 }}
-                  >
-                    <Reorder.Group
-                      as="div"
-                      className="itinerary-activity-list"
-                      axis="y"
-                      values={day.activities}
-                      onReorder={(activities) => reorderActivities(dayIndex, activities)}
-                    >
-                      {day.activities.map((activity, activityIndex) => {
-                        const previousActivity = activityIndex > 0 ? day.activities[activityIndex - 1] : undefined
-                        const showTravelPreview = !organizing
-                          && previousActivity?.serverId && previousActivity.address
-                          && activity.serverId && activity.address
-                          && !previousActivity.isFreeSlot && !activity.isFreeSlot
-                        return (
-                          <Fragment key={activity.id}>
-                            {showTravelPreview && (
-                              <TravelPreview
-                                origin={{ id: previousActivity.serverId!, title: previousActivity.title, address: previousActivity.address, time: previousActivity.time }}
-                                destination={{ id: activity.serverId!, title: activity.title, address: activity.address, time: activity.time }}
-                              />
-                            )}
-                            <DraggableActivity
-                              activity={activity}
-                              isoDate={day.isoDate}
-                              activityIndex={activityIndex}
-                              activityCount={day.activities.length}
-                              expanded={expandedActivityId === activity.id}
-                              organizing={organizing}
-                              linkedDocuments={documents.filter((document) => activity.documentIds?.includes(document.id))}
-                              reduceMotion={Boolean(reduceMotion)}
-                              onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
-                              onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
-                              onOpen={() => setEditingActivity({ dayIndex, activity })}
-                              onOpenDocument={setSelectedDocument}
-                            />
-                          </Fragment>
-                        )
-                      })}
-                    </Reorder.Group>
-                    <div className={`itinerary-availability${day.freeMinutes ? ' has-free-time' : ''}`}>
-                      <span>{day.freeMinutes ? 'Tempo livre identificado' : 'Disponibilidade'}</span>
-                      <strong>{day.freeMinutes ? formatDuration(day.freeMinutes) : 'A confirmar'}</strong>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </section>
-          )
-        })}
-      </div>
+      <AnimatePresence initial={false} custom={dayDirection} mode="popLayout">
+        {selectedDay && (
+          <motion.section
+            className="itinerary-selected-day"
+            id={`itinerary-day-${selectedDay.isoDate}`}
+            key={selectedDay.isoDate}
+            role="tabpanel"
+            aria-label={`${selectedDay.weekday}, ${selectedDay.date} de ${selectedDay.month}, ${selectedDay.city}`}
+            custom={dayDirection}
+            initial={reduceMotion ? false : 'enter'}
+            animate="center"
+            exit={reduceMotion ? undefined : 'exit'}
+            variants={{
+              enter: (direction: number) => ({ opacity: 0, x: direction * 12, filter: 'blur(2px)' }),
+              center: { opacity: 1, x: 0, filter: 'blur(0px)' },
+              exit: (direction: number) => ({ opacity: 0, x: direction * -4, filter: 'blur(1px)' }),
+            }}
+            transition={reduceMotion ? { duration: 0 } : { type: 'spring', duration: 0.22, bounce: 0 }}
+          >
+            <header className="itinerary-selected-day__header">
+              <div>
+                <span>{selectedDay.weekday} · {selectedDay.date} de {selectedDay.month}</span>
+                <h2>{selectedDay.city}</h2>
+                <p>{selectedDay.transport ?? selectedDay.summary}</p>
+              </div>
+              <strong>{selectedDay.activities.length} {selectedDay.activities.length === 1 ? 'plano' : 'planos'}</strong>
+            </header>
+
+            <Reorder.Group
+              as="div"
+              className="itinerary-activity-list"
+              axis="y"
+              values={selectedDay.activities}
+              onReorder={(activities) => reorderActivities(selectedDayIndex, activities)}
+            >
+              {selectedDay.activities.map((activity, activityIndex) => {
+                const previousActivity = activityIndex > 0 ? selectedDay.activities[activityIndex - 1] : undefined
+                const showTravelPreview = !organizing
+                  && previousActivity?.serverId && previousActivity.address
+                  && activity.serverId && activity.address
+                  && !previousActivity.isFreeSlot && !activity.isFreeSlot
+                return (
+                  <Fragment key={activity.id}>
+                    {showTravelPreview && (
+                      <TravelPreview
+                        origin={{ id: previousActivity.serverId!, title: previousActivity.title, address: previousActivity.address, time: previousActivity.time }}
+                        destination={{ id: activity.serverId!, title: activity.title, address: activity.address, time: activity.time }}
+                      />
+                    )}
+                    <DraggableActivity
+                      activity={activity}
+                      isoDate={selectedDay.isoDate}
+                      activityIndex={activityIndex}
+                      activityCount={selectedDay.activities.length}
+                      expanded={expandedActivityId === activity.id}
+                      organizing={organizing}
+                      linkedDocuments={documents.filter((document) => activity.documentIds?.includes(document.id))}
+                      reduceMotion={Boolean(reduceMotion)}
+                      onMove={(direction) => moveActivity(selectedDayIndex, activityIndex, direction)}
+                      onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
+                      onOpen={() => setEditingActivity({ dayIndex: selectedDayIndex, activity })}
+                      onOpenDocument={setSelectedDocument}
+                    />
+                  </Fragment>
+                )
+              })}
+            </Reorder.Group>
+            <div className={`itinerary-availability${selectedDay.freeMinutes ? ' has-free-time' : ''}`}>
+              <span>{selectedDay.freeMinutes ? 'Tempo livre identificado' : 'Disponibilidade'}</span>
+              <strong>{selectedDay.freeMinutes ? formatDuration(selectedDay.freeMinutes) : 'A confirmar'}</strong>
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       {user?.role === 'organizer' && <button className="itinerary-add" type="button" onClick={() => setCreatingActivity(true)}>
         <Plus size={18} aria-hidden="true" />
@@ -701,7 +790,7 @@ export default function ItineraryPage() {
           <ActivityEditor
             key="new-activity"
             activity={newActivity}
-            dayDate={openDays.find((date) => days.some((day) => day.isoDate === date)) ?? days[0].isoDate}
+            dayDate={selectedDay?.isoDate ?? days[0].isoDate}
             availableDays={days}
             mode="create"
             documents={documents}
