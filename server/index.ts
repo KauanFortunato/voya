@@ -24,7 +24,7 @@ import { verifyPassword } from './security/password.ts'
 import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
 import { contextualChecklistLimit, tripPhase } from './today/context.ts'
 import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
-import { computeWalkingPreview, GoogleRoutesError } from './maps/routes.ts'
+import { computeTravelPreview, GoogleRoutesError, type TravelMode } from './maps/routes.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -92,6 +92,7 @@ const databaseUuidSchema = z.string().regex(
 const travelPreviewSchema = z.object({
   originActivityId: databaseUuidSchema,
   destinationActivityId: databaseUuidSchema,
+  mode: z.enum(['WALK', 'TRANSIT', 'DRIVE']).default('WALK'),
 }).refine((value) => value.originActivityId !== value.destinationActivityId)
 const checklistItemSchema = z.object({
   groupId: databaseUuidSchema,
@@ -128,7 +129,7 @@ async function start() {
   const environment = readEnvironment()
   const sql = createDatabaseClient()
   const app = Fastify({ logger: true })
-  const travelPreviewCache = new Map<string, { expiresAt: number; preview: { distanceMeters: number; durationSeconds: number; mode: 'WALK' } }>()
+  const travelPreviewCache = new Map<string, { expiresAt: number; preview: { distanceMeters: number; durationSeconds: number; mode: TravelMode } }>()
 
   await app.register(cookie)
   await app.register(multipart, {
@@ -857,24 +858,25 @@ async function start() {
       return reply.code(422).send({ error: 'Defina o local das duas atividades para calcular o deslocamento' })
     }
 
-    const cacheKey = [origin.id, origin.updatedAt.toISOString(), destination.id, destination.updatedAt.toISOString(), 'WALK'].join(':')
+    const cacheKey = [origin.id, origin.updatedAt.toISOString(), destination.id, destination.updatedAt.toISOString(), body.data.mode].join(':')
     const cached = travelPreviewCache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) {
       return { ...cached.preview, originTitle: origin.title, destinationTitle: destination.title, cached: true }
     }
 
     try {
-      const preview = await computeWalkingPreview({
+      const preview = await computeTravelPreview({
         apiKey: environment.GOOGLE_MAPS_SERVER_API_KEY,
         origin: { ...origin, address: origin.address },
         destination: { ...destination, address: destination.address },
+        mode: body.data.mode,
       })
       travelPreviewCache.set(cacheKey, { expiresAt: Date.now() + 15 * 60_000, preview })
       return { ...preview, originTitle: origin.title, destinationTitle: destination.title, cached: false }
     } catch (error) {
       request.log.warn({ err: error }, 'Não foi possível calcular o deslocamento')
       if (error instanceof GoogleRoutesError && error.statusCode === 404) {
-        return reply.code(404).send({ error: 'Não foi encontrado um percurso a pé entre estes locais' })
+        return reply.code(404).send({ error: 'Não foi encontrado um percurso neste modo entre estes locais' })
       }
       return reply.code(502).send({ error: 'O Google Maps não conseguiu calcular esta estimativa agora' })
     }

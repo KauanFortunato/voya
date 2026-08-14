@@ -22,10 +22,12 @@ export type RouteLocation = {
   longitude: string | null
 }
 
+export type TravelMode = 'WALK' | 'TRANSIT' | 'DRIVE'
+
 export type TravelPreview = {
   distanceMeters: number
   durationSeconds: number
-  mode: 'WALK'
+  mode: TravelMode
 }
 
 export class GoogleRoutesError extends Error {
@@ -47,16 +49,18 @@ export function googleWaypoint(location: RouteLocation) {
   return { address: [location.address, location.city].filter(Boolean).join(', ') }
 }
 
-export async function computeWalkingPreview({
+export async function computeTravelPreview({
   apiKey,
   origin,
   destination,
+  mode,
   fetchImplementation = fetch,
   signal = AbortSignal.timeout(10_000),
 }: {
   apiKey: string
   origin: RouteLocation
   destination: RouteLocation
+  mode: TravelMode
   fetchImplementation?: typeof fetch
   signal?: AbortSignal
 }): Promise<TravelPreview> {
@@ -70,7 +74,7 @@ export async function computeWalkingPreview({
     body: JSON.stringify({
       origin: googleWaypoint(origin),
       destination: googleWaypoint(destination),
-      travelMode: 'WALK',
+      travelMode: mode,
       languageCode: 'pt-PT',
       units: 'METRIC',
     }),
@@ -92,6 +96,6 @@ export async function computeWalkingPreview({
   return {
     distanceMeters: route.distanceMeters,
     durationSeconds: Math.ceil(Number.parseFloat(route.duration.slice(0, -1))),
-    mode: 'WALK',
+    mode,
   }
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { computeWalkingPreview, googleWaypoint, GoogleRoutesError } from './routes.ts'
+import { computeTravelPreview, googleWaypoint, GoogleRoutesError } from './routes.ts'
 
 test('uses coordinates when a location has them', () => {
   assert.deepEqual(googleWaypoint({
@@ -17,10 +17,11 @@ test('falls back to an address and city waypoint', () => {
   }), { address: 'Coliseu, Roma' })
 })
 
-test('requests only walking duration and distance', async () => {
+test('requests duration and distance for the selected travel mode', async () => {
   let requestBody: unknown
-  const result = await computeWalkingPreview({
+  const result = await computeTravelPreview({
     apiKey: 'test-key',
+    mode: 'TRANSIT',
     origin: { address: 'Roscioli', city: 'Roma', latitude: null, longitude: null },
     destination: { address: 'Gianicolo', city: 'Roma', latitude: null, longitude: null },
     signal: new AbortController().signal,
@@ -36,17 +37,18 @@ test('requests only walking duration and distance', async () => {
   assert.deepEqual(requestBody, {
     origin: { address: 'Roscioli, Roma' },
     destination: { address: 'Gianicolo, Roma' },
-    travelMode: 'WALK',
+    travelMode: 'TRANSIT',
     languageCode: 'pt-PT',
     units: 'METRIC',
   })
-  assert.deepEqual(result, { distanceMeters: 1729, durationSeconds: 1620, mode: 'WALK' })
+  assert.deepEqual(result, { distanceMeters: 1729, durationSeconds: 1620, mode: 'TRANSIT' })
 })
 
 test('normalizes Google API failures', async () => {
   await assert.rejects(
-    computeWalkingPreview({
+    computeTravelPreview({
       apiKey: 'test-key',
+      mode: 'DRIVE',
       origin: { address: 'Origem', city: 'Roma', latitude: null, longitude: null },
       destination: { address: 'Destino', city: 'Roma', latitude: null, longitude: null },
       signal: new AbortController().signal,

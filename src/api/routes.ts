@@ -1,7 +1,9 @@
+export type TravelMode = 'WALK' | 'TRANSIT' | 'DRIVE'
+
 export type TravelPreviewPayload = {
   distanceMeters: number
   durationSeconds: number
-  mode: 'WALK'
+  mode: TravelMode
   originTitle: string
   destinationTitle: string
   cached: boolean
@@ -15,12 +17,13 @@ async function readError(response: Response) {
 export async function getTravelPreview(
   originActivityId: string,
   destinationActivityId: string,
+  mode: TravelMode,
   signal?: AbortSignal,
 ) {
   const response = await fetch('/api/routes/preview', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ originActivityId, destinationActivityId }),
+    body: JSON.stringify({ originActivityId, destinationActivityId, mode }),
     signal,
   })
   if (!response.ok) throw new Error(await readError(response))
