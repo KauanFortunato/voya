@@ -283,7 +283,7 @@ export default function TodayPage() {
           <motion.div
             className="today-initial-view"
             key="today-loading"
-            exit={reduceMotion ? undefined : { opacity: 0, filter: 'blur(1px)' }}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
             transition={{ duration: 0.14 }}
           >
             <TodaySkeleton />
@@ -293,8 +293,8 @@ export default function TodayPage() {
         {data && <motion.div
           className="today-initial-view"
           key="today-content"
-          initial={reduceMotion ? false : { opacity: 0, filter: 'blur(1px)' }}
-          animate={{ opacity: 1, filter: 'blur(0px)' }}
+          initial={reduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
         >
           <header className="today-header"><div className="header-info"><p>{data.trip.title}</p><h1>{greeting()}, {data.user.displayName}</h1></div><IconButton icon={Bell} ariaLabel="Notificações" /></header>
@@ -311,9 +311,9 @@ export default function TodayPage() {
               className="today-day-content"
               key={data.day.date}
               aria-live="polite"
-              initial={reduceMotion ? false : { opacity: 0.72, x: dayDirection * 12, filter: 'blur(2px)' }}
-              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-              exit={reduceMotion ? undefined : { opacity: 0, x: dayDirection * -5, filter: 'blur(1px)' }}
+              initial={reduceMotion ? false : { opacity: 0.72, x: dayDirection * 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, x: dayDirection * -5 }}
               transition={{ type: 'spring', duration: 0.22, bounce: 0 }}
             >
           <section className="today-day-context" aria-label={`Dia selecionado: ${formatDay(data.day.date)}, ${data.day.city}`}>

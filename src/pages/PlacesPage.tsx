@@ -533,9 +533,9 @@ export default function PlacesPage() {
           <motion.section
             key={view}
             className={view === 'list' ? 'place-list' : 'places-map-view'}
-            initial={reduceMotion ? false : { opacity: 0, y: 5, filter: 'blur(2px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
+            initial={reduceMotion ? false : { opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -2 }}
             transition={{ type: 'spring', duration: 0.2, bounce: 0 }}
             aria-live="polite"
             aria-label={`${filteredPlaces.length} lugares encontrados`}

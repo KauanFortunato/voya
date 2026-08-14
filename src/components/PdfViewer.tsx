@@ -231,6 +231,7 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
             className="pdf-viewer__image pdf-viewer__page-content"
             src={source}
             alt={title}
+            decoding="async"
             style={{ width: Math.max(280, Math.min(viewportWidth - 24, 720)) * scale }}
           />
         ) : <Document

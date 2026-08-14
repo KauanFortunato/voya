@@ -115,7 +115,7 @@ function ReadyArt() {
   return (
     <div className="onboarding-art onboarding-art--ready" aria-hidden="true">
       <svg className="ready-route" viewBox="0 0 320 230" fill="none"><motion.path d="M26 175C68 130 109 194 155 143C194 100 236 112 294 52" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="6 9" initial={reduceMotion ? false : { pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 0.5 }} transition={{ duration: reduceMotion ? 0 : 0.72, delay: 0.1 }} /></svg>
-      <ArtItem className="ready-logo" index={1}><img src={logo} alt="" /><small>Sua viagem, passo a passo</small></ArtItem>
+      <ArtItem className="ready-logo" index={1}><img src={logo} alt="" width="720" height="275" decoding="async" /><small>Sua viagem, passo a passo</small></ArtItem>
       <ArtItem className="ready-icon ready-icon--calendar" index={2}><CalendarDays size={20} /></ArtItem>
       <ArtItem className="ready-icon ready-icon--map" index={3}><MapPin size={20} /></ArtItem>
       <ArtItem className="ready-icon ready-icon--check" index={4}><CheckSquare2 size={20} /></ArtItem>
@@ -143,7 +143,7 @@ function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   return (
     <main className="onboarding-page" id="main-content">
-      <header className="onboarding-header"><img src={logo} alt="Voya" /><button type="button" onClick={onComplete}>Pular</button></header>
+      <header className="onboarding-header"><img src={logo} alt="Voya" width="720" height="275" decoding="async" /><button type="button" onClick={onComplete}>Pular</button></header>
       <div className="onboarding-stage" aria-live="polite">
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.section className="onboarding-slide" key={step} custom={direction} initial={reduceMotion ? false : { opacity: 0, x: direction * 22, filter: 'blur(3px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} exit={reduceMotion ? undefined : { opacity: 0, x: direction * -9, filter: 'blur(1px)' }} transition={{ type: 'spring', duration: 0.36, bounce: 0 }}>
@@ -184,7 +184,7 @@ function LoginCard() {
   return (
     <main className="login-page" id="main-content">
       <motion.section className="login-card" initial={reduceMotion ? false : { opacity: 0, y: 8, filter: 'blur(3px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ type: 'spring', duration: 0.28, bounce: 0 }}>
-        <div className="login-brand"><img src={logo} alt="Voya" /><span><LockKeyhole size={14} />Área privada</span></div>
+        <div className="login-brand"><img src={logo} alt="Voya" width="720" height="275" decoding="async" /><span><LockKeyhole size={14} />Área privada</span></div>
         <div className="login-card__intro"><h1>Bem-vindo de volta</h1><p>Escolha seu perfil para acessar a viagem.</p></div>
         <form onSubmit={submit}>
           <fieldset className="login-travelers" disabled={submitting}><legend>Perfil</legend><div>{travelers.map((traveler) => { const selected = name === traveler.name; return <button type="button" key={traveler.name} className={selected ? 'is-selected' : ''} aria-pressed={selected} onClick={() => setName(traveler.name)}><i>{traveler.initials}</i><span>{traveler.name}</span>{selected && <Check size={15} aria-hidden="true" />}</button> })}</div></fieldset>

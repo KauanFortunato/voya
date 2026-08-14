@@ -629,9 +629,9 @@ export default function ItineraryPage() {
             animate="center"
             exit={reduceMotion ? undefined : 'exit'}
             variants={{
-              enter: (direction: number) => ({ opacity: 0, x: direction * 12, filter: 'blur(2px)' }),
-              center: { opacity: 1, x: 0, filter: 'blur(0px)' },
-              exit: (direction: number) => ({ opacity: 0, x: direction * -4, filter: 'blur(1px)' }),
+              enter: (direction: number) => ({ opacity: 0, x: direction * 12 }),
+              center: { opacity: 1, x: 0 },
+              exit: (direction: number) => ({ opacity: 0, x: direction * -4 }),
             }}
             transition={reduceMotion ? { duration: 0 } : { type: 'spring', duration: 0.22, bounce: 0 }}
           >
