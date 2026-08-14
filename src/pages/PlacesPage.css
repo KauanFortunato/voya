@@ -113,6 +113,10 @@
 .places-nearby__modes button.is-active { border-color: rgb(47 128 237 / 17%); color: var(--color-primary-dark); background: white; }
 .places-nearby__modes button:disabled { cursor: wait; opacity: 0.62; }
 .places-nearby > p { color: var(--color-text-secondary); font-size: 0.56rem; line-height: 1.4; }
+.places-nearby > small { color: var(--color-text-secondary); font-size: 0.5rem; }
+.places-nearby__status { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.places-nearby__status p { color: var(--color-text-secondary); font-size: 0.56rem; line-height: 1.4; }
+.places-nearby__status button { min-height: 30px; flex: 0 0 auto; padding: 0 9px; border: 0; border-radius: 8px; color: var(--color-primary-dark); background: white; font-size: 0.53rem; font-weight: 760; cursor: pointer; }
 .places-nearby__error { display: flex; align-items: center; justify-content: space-between; color: #a84c3f; font-size: 0.57rem; gap: 8px; }
 .places-nearby__error button { min-height: 30px; flex: 0 0 auto; padding: 0 8px; border: 0; border-radius: 8px; color: #a84c3f; background: #fff0ed; font-size: 0.53rem; font-weight: 760; cursor: pointer; }
 
