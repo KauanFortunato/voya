@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type BudgetTraveler = { id: string; displayName: string }
 
 export type ApiExpense = {
@@ -36,9 +38,10 @@ async function readError(response: Response) {
 }
 
 export async function getBudget(signal?: AbortSignal) {
-  const response = await fetch('/api/budget', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<BudgetPayload>
+  return getJsonWithOfflineFallback<BudgetPayload>('budget', '/api/budget', {
+    signal,
+    errorMessage: 'Não foi possível carregar o orçamento',
+  })
 }
 
 export async function updateBudget(amount: number) {

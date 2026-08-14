@@ -1,6 +1,7 @@
-const APP_CACHE = 'voya-app-v1'
+const APP_CACHE = 'voya-app-v2'
 const APP_CACHE_PREFIX = 'voya-app-'
 const DOCUMENT_CACHE = 'voya-documents-v1'
+const BUILD_ASSETS = "__VOYA_BUILD_ASSETS__"
 const APP_SHELL_RESOURCES = [
   '/manifest.webmanifest',
   '/icons/voya-192.png',
@@ -20,7 +21,8 @@ async function cacheAppShell() {
   const html = await response.text()
   const versionedAssets = [...html.matchAll(/(?:src|href)="(\/assets\/[^"#?]+)"/g)]
     .map((match) => match[1])
-  const resources = [...new Set([...APP_SHELL_RESOURCES, ...versionedAssets])]
+  const buildAssets = Array.isArray(BUILD_ASSETS) ? BUILD_ASSETS : []
+  const resources = [...new Set([...APP_SHELL_RESOURCES, ...versionedAssets, ...buildAssets])]
 
   await Promise.all(resources.map(async (resource) => {
     const assetResponse = await fetch(resource, { cache: 'no-store' })

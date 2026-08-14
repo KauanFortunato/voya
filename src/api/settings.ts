@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type ReminderLeadMinutes = 15 | 30 | 60 | 1440
 
 export type ReminderPreferences = {
@@ -16,9 +18,10 @@ async function readError(response: Response) {
 }
 
 export async function getReminderPreferences(signal?: AbortSignal) {
-  const response = await fetch('/api/reminder-preferences', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<ReminderPreferences>
+  return getJsonWithOfflineFallback<ReminderPreferences>('reminder-preferences', '/api/reminder-preferences', {
+    signal,
+    errorMessage: 'Não foi possível carregar as preferências',
+  })
 }
 
 export async function updateReminderPreferences(preferences: Pick<ReminderPreferences, 'enabled' | 'defaultLeadMinutes'>) {

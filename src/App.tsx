@@ -16,6 +16,7 @@ import {
 } from 'react-router-dom'
 
 import ScreenSkeleton from './components/ScreenSkeleton'
+import OfflineStatus from './components/OfflineStatus'
 import { AuthProvider } from './auth/AuthContext'
 import { useAuth } from './auth/auth'
 import TodayPage from './pages/TodayPage'
@@ -152,6 +153,7 @@ function AppShell() {
         Ir para o conteúdo
       </a>
       <ScrollPositionManager />
+      <OfflineStatus />
       <AnimatedRoutes />
       {!isMoreSubpage && <BottomNavigation />}
     </div>

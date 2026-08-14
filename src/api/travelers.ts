@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type TravelPace = 'relaxed' | 'balanced' | 'intense'
 export type TravelerInterest = 'art' | 'history' | 'food' | 'nature' | 'shopping' | 'photography'
 
@@ -33,12 +35,13 @@ async function readError(response: Response) {
 }
 
 export async function listTravelers(signal?: AbortSignal) {
-  const response = await fetch('/api/travelers', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<{
+  return getJsonWithOfflineFallback<{
     trip: { id: string; title: string }
     travelers: ApiTraveler[]
-  }>
+  }>('travelers', '/api/travelers', {
+    signal,
+    errorMessage: 'Não foi possível carregar os viajantes',
+  })
 }
 
 export async function updateTravelerProfile(travelerId: string, profile: TravelerProfileInput) {

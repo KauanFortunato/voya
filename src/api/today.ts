@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type TodayDocument = {
   id: string
   title: string
@@ -81,10 +83,11 @@ let initialTodayRequest: Promise<TodayPayload> | null = null
 
 function requestToday(date?: string) {
   const query = date ? `?date=${encodeURIComponent(date)}` : ''
-  return fetch(`/api/today${query}`).then(async (response) => {
-    if (!response.ok) throw new Error(await readError(response))
-    return response.json() as Promise<TodayPayload>
-  })
+  return getJsonWithOfflineFallback<TodayPayload>(
+    `today:${date ?? 'current'}`,
+    `/api/today${query}`,
+    { errorMessage: 'Não foi possível carregar este dia' },
+  )
 }
 
 export function prefetchToday() {

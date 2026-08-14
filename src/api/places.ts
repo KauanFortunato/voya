@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type PlaceStatus = 'saved' | 'planned' | 'visited'
 export type NearbyTravelMode = 'WALK' | 'TRANSIT' | 'DRIVE'
 
@@ -27,9 +29,10 @@ async function readError(response: Response) {
 }
 
 export async function listPlaces(signal?: AbortSignal) {
-  const response = await fetch('/api/places', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<{ places: Place[] }>
+  return getJsonWithOfflineFallback<{ places: Place[] }>('places', '/api/places', {
+    signal,
+    errorMessage: 'Não foi possível carregar os lugares',
+  })
 }
 
 export async function updatePlaceStatus(placeId: string, status: PlaceStatus) {

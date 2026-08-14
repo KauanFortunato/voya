@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { AuthContext, type AuthContextValue, type AuthUser } from './auth'
+import { clearOfflineAccess, readOfflineUser, rememberOfflineUser } from '../offline/data'
 
 async function readError(response: Response) {
   const payload = await response.json().catch(() => null) as { error?: string } | null
@@ -16,15 +17,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetch('/api/auth/me', { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) await clearOfflineAccess()
+          else {
+            const offlineUser = readOfflineUser()
+            if (offlineUser) {
+              setUser(offlineUser)
+              setStatus('authenticated')
+              return
+            }
+          }
           setStatus('anonymous')
           return
         }
         const payload = await response.json() as { user: AuthUser }
+        rememberOfflineUser(payload.user)
         setUser(payload.user)
         setStatus('authenticated')
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
+        const offlineUser = readOfflineUser()
+        if (offlineUser) {
+          setUser(offlineUser)
+          setStatus('authenticated')
+          return
+        }
         setStatus('anonymous')
       })
     return () => controller.abort()
@@ -38,12 +55,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     if (!response.ok) throw new Error(await readError(response))
     const payload = await response.json() as { user: AuthUser }
+    rememberOfflineUser(payload.user)
     setUser(payload.user)
     setStatus('authenticated')
   }, [])
 
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
+    await clearOfflineAccess()
     setUser(null)
     setStatus('anonymous')
   }, [])

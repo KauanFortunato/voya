@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type ChecklistScope = 'family' | 'personal'
 
 export type ApiChecklistItem = {
@@ -31,9 +33,10 @@ async function readError(response: Response) {
 }
 
 export async function getChecklist(signal?: AbortSignal) {
-  const response = await fetch('/api/checklist', { signal })
-  if (!response.ok) throw new Error(await readError(response))
-  return response.json() as Promise<ChecklistPayload>
+  return getJsonWithOfflineFallback<ChecklistPayload>('checklist', '/api/checklist', {
+    signal,
+    errorMessage: 'Não foi possível carregar o checklist',
+  })
 }
 
 export async function setChecklistItemCompletion(itemId: string, completed: boolean) {

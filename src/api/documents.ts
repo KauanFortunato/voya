@@ -1,3 +1,5 @@
+import { getJsonWithOfflineFallback } from '../offline/data'
+
 export type ApiDocument = {
   id: string
   title: string
@@ -60,10 +62,11 @@ export async function listDocuments(signal?: AbortSignal) {
 
   if (!documentsRequest) {
     const requestVersion = documentsCacheVersion
-    const pendingRequest = fetch('/api/documents')
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await readError(response))
-        const payload = await response.json() as DocumentsPayload
+    const pendingRequest = getJsonWithOfflineFallback<DocumentsPayload>(
+      'documents',
+      '/api/documents',
+      { errorMessage: 'Não foi possível carregar os documentos' },
+    ).then((payload) => {
         if (requestVersion === documentsCacheVersion) {
           documentsCache = { payload, expiresAt: Date.now() + documentsCacheDurationMs }
         }
