@@ -26,6 +26,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Documentos ligados ao Roteiro e à timeline Hoje abrem em diálogo sem trocar de página, com um acesso individual para cada ficheiro associado à atividade.
 - Cartões da timeline Hoje mais compactos, com horário indefinido tratado como estado e menos texto secundário.
 - Filtro de lugares mais próximos usando a localização atual e a Google Route Matrix, com ordenação e estimativas para percursos a pé, transporte público e carro.
+- Resultados de proximidade restaurados localmente ao regressar a Lugares, com verificação silenciosa e atualização após 10 minutos ou 300 metros.
 - A atividade em destaque na página Hoje pode ser concluída diretamente e deixou de mostrar a ilustração de rota decorativa.
 
 ### Melhorado
