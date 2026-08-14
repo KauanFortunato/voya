@@ -24,6 +24,7 @@ import { verifyPassword } from './security/password.ts'
 import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
 import { contextualChecklistLimit, tripPhase } from './today/context.ts'
 import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
+import { computeWalkingPreview, GoogleRoutesError } from './maps/routes.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -88,6 +89,10 @@ const activityEditorSchema = z.object({
 const databaseUuidSchema = z.string().regex(
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 )
+const travelPreviewSchema = z.object({
+  originActivityId: databaseUuidSchema,
+  destinationActivityId: databaseUuidSchema,
+}).refine((value) => value.originActivityId !== value.destinationActivityId)
 const checklistItemSchema = z.object({
   groupId: databaseUuidSchema,
   title: z.string().trim().min(1).max(160),
@@ -123,6 +128,7 @@ async function start() {
   const environment = readEnvironment()
   const sql = createDatabaseClient()
   const app = Fastify({ logger: true })
+  const travelPreviewCache = new Map<string, { expiresAt: number; preview: { distanceMeters: number; durationSeconds: number; mode: 'WALK' } }>()
 
   await app.register(cookie)
   await app.register(multipart, {
@@ -810,6 +816,68 @@ async function start() {
     await sql`delete from activity_completions where activity_id = ${activity.id}`
     await reconcileActivityReminders(activity.id)
     return { completed: false, completedAt: null, completedByName: null }
+  })
+
+  app.post('/api/routes/preview', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para calcular o deslocamento' })
+    if (!environment.GOOGLE_MAPS_SERVER_API_KEY) {
+      return reply.code(503).send({ error: 'As estimativas de deslocamento ainda não estão configuradas' })
+    }
+    const body = travelPreviewSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Escolha duas atividades válidas' })
+    const trip = await getCurrentTrip(user.id)
+    if (!trip) return reply.code(409).send({ error: 'A viagem inicial ainda não foi criada' })
+
+    const ids = [body.data.originActivityId, body.data.destinationActivityId]
+    const activities = await sql<{
+      id: string
+      title: string
+      address: string | null
+      city: string
+      latitude: string | null
+      longitude: string | null
+      tripDayId: string
+      updatedAt: Date
+    }[]>`
+      select a.id, a.title, a.address, td.city, a.latitude, a.longitude,
+             a.trip_day_id, a.updated_at
+      from activities a
+      join trip_days td on td.id = a.trip_day_id
+      where td.trip_id = ${trip.id} and a.id in ${sql(ids)}
+    `
+    if (activities.length !== 2) return reply.code(404).send({ error: 'Atividade não encontrada nesta viagem' })
+
+    const origin = activities.find((activity) => activity.id === body.data.originActivityId)!
+    const destination = activities.find((activity) => activity.id === body.data.destinationActivityId)!
+    if (origin.tripDayId !== destination.tripDayId) {
+      return reply.code(400).send({ error: 'As atividades devem pertencer ao mesmo dia' })
+    }
+    if (!origin.address || !destination.address) {
+      return reply.code(422).send({ error: 'Defina o local das duas atividades para calcular o deslocamento' })
+    }
+
+    const cacheKey = [origin.id, origin.updatedAt.toISOString(), destination.id, destination.updatedAt.toISOString(), 'WALK'].join(':')
+    const cached = travelPreviewCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return { ...cached.preview, originTitle: origin.title, destinationTitle: destination.title, cached: true }
+    }
+
+    try {
+      const preview = await computeWalkingPreview({
+        apiKey: environment.GOOGLE_MAPS_SERVER_API_KEY,
+        origin: { ...origin, address: origin.address },
+        destination: { ...destination, address: destination.address },
+      })
+      travelPreviewCache.set(cacheKey, { expiresAt: Date.now() + 15 * 60_000, preview })
+      return { ...preview, originTitle: origin.title, destinationTitle: destination.title, cached: false }
+    } catch (error) {
+      request.log.warn({ err: error }, 'Não foi possível calcular o deslocamento')
+      if (error instanceof GoogleRoutesError && error.statusCode === 404) {
+        return reply.code(404).send({ error: 'Não foi encontrado um percurso a pé entre estes locais' })
+      }
+      return reply.code(502).send({ error: 'O Google Maps não conseguiu calcular esta estimativa agora' })
+    }
   })
 
   app.get('/api/places', async (request, reply) => {
