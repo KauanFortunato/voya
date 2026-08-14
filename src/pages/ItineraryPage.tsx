@@ -14,6 +14,7 @@ import { listTravelers, type ApiTraveler } from '../api/travelers'
 import { useAuth } from '../auth/auth'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
+import TravelPreview from '../components/TravelPreview'
 import {
   tripDays,
   formatDuration,
@@ -32,6 +33,7 @@ type DraggableActivityProps = {
   activityCount: number
   expanded: boolean
   organizing: boolean
+  previousActivity?: CalendarActivity
   reduceMotion: boolean
   onMove: (direction: -1 | 1) => void
   onToggle: () => void
@@ -45,6 +47,7 @@ function DraggableActivity({
   activityCount,
   expanded,
   organizing,
+  previousActivity,
   reduceMotion,
   onMove,
   onToggle,
@@ -126,6 +129,10 @@ function DraggableActivity({
                 <div><span>Início</span><strong>{activity.time}</strong></div>
                 <div><span>Fim</span><strong>{activity.endTime ?? 'A definir'}</strong></div>
               </div>
+              {previousActivity?.serverId && previousActivity.address && activity.serverId && activity.address
+                && !previousActivity.isFreeSlot && !activity.isFreeSlot
+                ? <TravelPreview origin={previousActivity} destination={activity} />
+                : null}
               {activity.note && <p className="itinerary-activity__note">{activity.note}</p>}
               {activity.documentIds?.length ? (
                 <Link className="itinerary-linked-documents" to={`/more/documents?document=${activity.documentIds[0]}`}>
@@ -621,6 +628,7 @@ export default function ItineraryPage() {
                           activityCount={day.activities.length}
                           expanded={expandedActivityId === activity.id}
                           organizing={organizing}
+                          previousActivity={activityIndex > 0 ? day.activities[activityIndex - 1] : undefined}
                           reduceMotion={Boolean(reduceMotion)}
                           onMove={(direction) => moveActivity(dayIndex, activityIndex, direction)}
                           onToggle={() => setExpandedActivityId((current) => current === activity.id ? null : activity.id)}
