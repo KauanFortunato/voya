@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Pencil, Plus, ReceiptText, Trash2, WalletC
 import { createExpense, deleteExpense, getBudget, updateBudget, type ApiExpense, type BudgetPayload } from '../api/budget'
 import ModalPortal from '../components/ModalPortal'
 import SubpageHeader from '../components/SubpageHeader'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './BudgetPage.css'
 
 const categories = ['Hospedagem', 'Alimentação', 'Transporte', 'Ingressos', 'Compras', 'Outro']
@@ -52,8 +53,8 @@ function ExpenseEditor({ budget, onClose, onCreated }: ExpenseEditorProps) {
 
   return (
     <div className="expense-editor-layer" role="presentation">
-      <motion.button className="expense-editor-backdrop" type="button" aria-label="Fechar nova despesa" onClick={onClose} disabled={state === 'saving'} initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={{ duration: 0.16 }} />
-      <motion.form className="expense-editor" role="dialog" aria-modal="true" aria-labelledby="expense-editor-title" onSubmit={(event) => void submit(event)} initial={reduceMotion ? false : { y: '100%', opacity: 0.92 }} animate={{ y: 0, opacity: 1 }} exit={reduceMotion ? undefined : { y: 18, opacity: 0 }} transition={{ type: 'spring', duration: 0.34, bounce: 0 }}>
+      <motion.button className="expense-editor-backdrop" type="button" aria-label="Fechar nova despesa" onClick={onClose} disabled={state === 'saving'} {...dialogBackdropMotion(reduceMotion)} />
+      <motion.form className="expense-editor" role="dialog" aria-modal="true" aria-labelledby="expense-editor-title" onSubmit={(event) => void submit(event)} {...bottomSheetMotion(reduceMotion)}>
         <span className="expense-editor__handle" aria-hidden="true" />
         <div className="expense-editor__heading"><div><span>Novo lançamento</span><h2 id="expense-editor-title">Adicionar despesa</h2></div><button type="button" onClick={onClose} disabled={state === 'saving'} aria-label="Fechar"><X size={19} /></button></div>
         <label className="expense-field"><span>Descrição</span><input required maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Bilhetes do museu" /></label>

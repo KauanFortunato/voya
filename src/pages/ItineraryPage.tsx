@@ -3,7 +3,6 @@ import {
   AnimatePresence,
   motion,
   Reorder,
-  useDragControls,
   useReducedMotion,
 } from 'motion/react'
 import { Check, ChevronDown, ChevronUp, Clock3, FileText, GripVertical, Map, MapPin, Pencil, Plus, Save, Star, Ticket, UserRound, UsersRound, X } from 'lucide-react'
@@ -23,6 +22,7 @@ import {
   type CalendarActivity,
   type CalendarDay,
 } from '../data/itinerary'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './ItineraryPage.css'
 
 type DraggableActivityProps = {
@@ -50,7 +50,6 @@ function DraggableActivity({
   onToggle,
   onOpen,
 }: DraggableActivityProps) {
-  const dragControls = useDragControls()
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(activity.address || activity.title)}`
 
   return (
@@ -58,30 +57,29 @@ function DraggableActivity({
       as="article"
       className={`itinerary-activity${activity.isFreeSlot ? ' is-free-slot' : ''}${expanded ? ' is-expanded' : ''}${organizing ? ' is-organizing' : ''}`}
       value={activity}
-      drag={organizing ? 'y' : false}
-      dragListener={false}
-      dragControls={dragControls}
-      dragElastic={0.06}
+      layout="position"
+      dragListener={organizing}
+      dragElastic={0.025}
       dragMomentum={false}
       whileDrag={
         reduceMotion
           ? { zIndex: 2 }
           : {
               zIndex: 2,
-              scale: 1.015,
+              scale: 1.008,
               boxShadow: '0 12px 30px rgb(39 91 143 / 18%)',
             }
       }
-      transition={{ type: 'spring', duration: reduceMotion ? 0 : 0.22, bounce: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 620, damping: 46, mass: 0.7 }}
     >
       <span className={`itinerary-timeline-dot${activity.isImportant ? ' is-important' : ''}`} aria-hidden="true" />
       <div className="itinerary-activity__card">
         <div className="itinerary-activity__top">
-          <button className="itinerary-activity__time" type="button" onClick={onOpen} aria-label={`Editar horário de ${activity.title}`}>
+          <button className="itinerary-activity__time" type="button" disabled={organizing} onClick={onOpen} aria-label={`Editar horário de ${activity.title}`}>
             <strong>{activity.time}</strong>
             <span>{activity.durationMinutes ? formatDuration(activity.durationMinutes) : activity.endTime ? `até ${activity.endTime}` : 'sem duração'}</span>
           </button>
-          <button className="itinerary-activity__summary" type="button" onClick={onToggle} aria-expanded={expanded}>
+          <button className="itinerary-activity__summary" type="button" disabled={organizing} onClick={onToggle} aria-expanded={expanded}>
             <span className={`itinerary-schedule-badge${activity.time === 'A definir' ? ' is-pending' : ''}`}>
               {activity.time === 'A definir' ? 'HORÁRIO A DEFINIR' : 'HORÁRIO DEFINIDO'}
             </span>
@@ -96,15 +94,13 @@ function DraggableActivity({
             </span>
           </button>
           {organizing ? (
-            <button
+            <span
               className="itinerary-grip"
-              type="button"
-              aria-label={`Segure e arraste para reorganizar ${activity.title}`}
               title="Segure e arraste para reorganizar"
-              onPointerDown={(event) => dragControls.start(event)}
+              aria-hidden="true"
             >
               <GripVertical size={18} aria-hidden="true" />
-            </button>
+            </span>
           ) : (
             <button className="itinerary-expand" type="button" onClick={onToggle} aria-label={expanded ? `Recolher ${activity.title}` : `Expandir ${activity.title}`}>
               {expanded ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
@@ -116,10 +112,15 @@ function DraggableActivity({
           {expanded && !organizing && (
             <motion.div
               className="itinerary-activity__details"
-              initial={reduceMotion ? false : { opacity: 0, y: 6, filter: 'blur(2px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: -2, filter: 'blur(1px)' }}
-              transition={{ type: 'spring', duration: reduceMotion ? 0 : 0.22, bounce: 0 }}
+              initial={reduceMotion ? false : { height: 0 }}
+              animate={{
+                height: 'auto',
+                transition: reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+              }}
+              exit={reduceMotion ? undefined : {
+                height: 0,
+                transition: { duration: 0.13, ease: [0.4, 0, 1, 1] },
+              }}
             >
               <div className="itinerary-activity__facts">
                 <div><span>Início</span><strong>{activity.time}</strong></div>
@@ -218,6 +219,7 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
     activity.reminderRecipientIds?.length ? activity.reminderRecipientIds : [currentUserId],
   )
   const [documentIds, setDocumentIds] = useState(activity.documentIds ?? [])
+  const [documentsOpen, setDocumentsOpen] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'error'>('idle')
 
   return (
@@ -227,20 +229,14 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
         type="button"
         aria-label="Fechar editor"
         onClick={onClose}
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={reduceMotion ? undefined : { opacity: 0 }}
-        transition={{ duration: 0.18 }}
+        {...dialogBackdropMotion(reduceMotion)}
       />
       <motion.form
         className="itinerary-editor"
         role="dialog"
         aria-modal="true"
         aria-labelledby="itinerary-editor-title"
-        initial={reduceMotion ? false : { y: '100%' }}
-        animate={{ y: 0 }}
-        exit={reduceMotion ? undefined : { y: 28, opacity: 0 }}
-        transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+        {...bottomSheetMotion(reduceMotion)}
         onSubmit={(event) => {
           event.preventDefault()
           setSaveState('saving')
@@ -362,33 +358,47 @@ function ActivityEditor({ activity, dayDate: initialDayDate, availableDays, mode
         )}
 
         {mode === 'edit' && activity.serverId && (
-          <fieldset className="itinerary-editor__documents" disabled={saveState === 'saving'}>
-            <legend>Documentos ligados</legend>
-            {documents.length ? documents.map((document) => {
-              const isLinked = documentIds.includes(document.id)
-              return (
-                <div key={document.id}>
-                  <button
-                    type="button"
-                    className={isLinked ? 'is-selected' : ''}
-                    aria-pressed={isLinked}
-                    onClick={() => setDocumentIds((current) => current.includes(document.id)
-                      ? current.filter((id) => id !== document.id)
-                      : [...current, document.id])}
-                  >
-                    <FileText size={16} aria-hidden="true" />
-                    <span>{document.title}</span>
-                    {isLinked && <Check size={15} aria-hidden="true" />}
-                  </button>
-                  <Link to={`/more/documents?document=${document.id}`}>Abrir</Link>
-                </div>
-              )
-            }) : <p>Nenhum documento foi enviado para esta viagem.</p>}
-          </fieldset>
+          <section className={`itinerary-editor__documents-section${documentsOpen ? ' is-open' : ''}`}>
+            <button
+              className="itinerary-editor__documents-toggle"
+              type="button"
+              aria-expanded={documentsOpen}
+              aria-controls="itinerary-editor-documents"
+              onClick={() => setDocumentsOpen((current) => !current)}
+            >
+              <span><FileText size={17} aria-hidden="true" /></span>
+              <span><strong>Documentos ligados</strong><small>{documentIds.length ? `${documentIds.length} ${documentIds.length === 1 ? 'documento ligado' : 'documentos ligados'}` : 'Nenhum documento ligado'}</small></span>
+              {documentsOpen ? <ChevronUp size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}
+            </button>
+            {documentsOpen && (
+              <fieldset className="itinerary-editor__documents" id="itinerary-editor-documents" disabled={saveState === 'saving'}>
+                {documents.length ? documents.map((document) => {
+                  const isLinked = documentIds.includes(document.id)
+                  return (
+                    <div key={document.id}>
+                      <button
+                        type="button"
+                        className={isLinked ? 'is-selected' : ''}
+                        aria-pressed={isLinked}
+                        onClick={() => setDocumentIds((current) => current.includes(document.id)
+                          ? current.filter((id) => id !== document.id)
+                          : [...current, document.id])}
+                      >
+                        <FileText size={16} aria-hidden="true" />
+                        <span>{document.title}</span>
+                        {isLinked && <Check size={15} aria-hidden="true" />}
+                      </button>
+                      <Link to={`/more/documents?document=${document.id}`}>Abrir</Link>
+                    </div>
+                  )
+                }) : <p>Nenhum documento foi enviado para esta viagem.</p>}
+                <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>
+              </fieldset>
+            )}
+          </section>
         )}
 
         {saveState === 'error' && <p className="itinerary-editor__error" role="alert">Não foi possível guardar a atividade.</p>}
-        {mode === 'edit' && <p className="itinerary-editor__storage">Os documentos ligados são sincronizados com a NAS.</p>}
         <button className="itinerary-editor__save" type="submit" disabled={saveState === 'saving'} aria-busy={saveState === 'saving'}>
           <Save size={17} aria-hidden="true" />{saveState === 'saving' ? 'A guardar…' : mode === 'create' ? 'Adicionar atividade' : 'Guardar alterações'}
         </button>

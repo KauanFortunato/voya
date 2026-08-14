@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import { listTravelers, updateTravelerProfile, type ApiTraveler, type TravelerInterest } from '../api/travelers'
 import ModalPortal from '../components/ModalPortal'
 import SubpageHeader from '../components/SubpageHeader'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './TravelersPage.css'
 
 const paceLabels = { relaxed: 'Tranquilo', balanced: 'Equilibrado', intense: 'Intenso' } as const
@@ -72,10 +73,7 @@ function TravelerEditor({ traveler, onClose, onSaved }: TravelerEditorProps) {
         aria-label="Fechar preferências"
         disabled={saveState === 'saving'}
         onClick={onClose}
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={reduceMotion ? undefined : { opacity: 0 }}
-        transition={{ duration: 0.16 }}
+        {...dialogBackdropMotion(reduceMotion)}
       />
       <motion.form
         className="traveler-editor"
@@ -83,10 +81,7 @@ function TravelerEditor({ traveler, onClose, onSaved }: TravelerEditorProps) {
         aria-modal="true"
         aria-labelledby="traveler-editor-title"
         onSubmit={(event) => void save(event)}
-        initial={reduceMotion ? false : { y: '100%', opacity: 0.9 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={reduceMotion ? undefined : { y: 18, opacity: 0 }}
-        transition={{ type: 'spring', duration: 0.34, bounce: 0 }}
+        {...bottomSheetMotion(reduceMotion)}
       >
         <span className="traveler-editor__handle" aria-hidden="true" />
         <div className="traveler-editor__heading">

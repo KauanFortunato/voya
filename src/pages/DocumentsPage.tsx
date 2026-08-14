@@ -20,6 +20,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 
 import SubpageHeader from '../components/SubpageHeader'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import ModalPortal from '../components/ModalPortal'
 import { useAuth } from '../auth/auth'
 import {
@@ -670,10 +671,7 @@ export default function DocumentsPage() {
               aria-label="Cancelar importação"
               disabled={uploadState.status === 'uploading'}
               onClick={closeUploadDraft}
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.18 }}
+              {...dialogBackdropMotion(reduceMotion)}
             />
             <motion.form
               className="document-sheet document-upload-sheet"
@@ -682,10 +680,7 @@ export default function DocumentsPage() {
               aria-labelledby="document-upload-title"
               aria-describedby="document-upload-description"
               onSubmit={(event) => void submitUpload(event)}
-              initial={reduceMotion ? false : { y: '100%' }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={reduceMotion ? undefined : { y: 24, opacity: 0 }}
-              transition={{ type: 'spring', duration: 0.34, bounce: 0 }}
+              {...bottomSheetMotion(reduceMotion)}
             >
               <span className="document-sheet__handle" aria-hidden="true" />
               <button
@@ -819,20 +814,14 @@ export default function DocumentsPage() {
               type="button"
               aria-label="Fechar detalhes"
               onClick={closeDocumentOverlay}
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.18 }}
+              {...dialogBackdropMotion(reduceMotion)}
             />
             <motion.section
               className="document-sheet document-details-sheet"
               role="dialog"
               aria-modal="true"
               aria-labelledby="document-sheet-title"
-              initial={reduceMotion ? false : { y: '100%' }}
-              animate={{ y: 0 }}
-              exit={reduceMotion ? undefined : { y: '100%' }}
-              transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+              {...bottomSheetMotion(reduceMotion)}
             >
               <span className="document-sheet__handle" aria-hidden="true" style={{ marginBottom: 44 }} />
               <button className="document-sheet__close" type="button" aria-label="Fechar" onClick={closeDocumentOverlay}>
@@ -1018,10 +1007,7 @@ export default function DocumentsPage() {
               aria-label="Cancelar exclusão"
               disabled={deleteState === 'deleting'}
               onClick={cancelDocumentDeletion}
-              initial={reduceMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduceMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.16 }}
+              {...dialogBackdropMotion(reduceMotion)}
             />
             <motion.section
               className="document-sheet document-delete-sheet"
@@ -1029,10 +1015,7 @@ export default function DocumentsPage() {
               aria-modal="true"
               aria-labelledby="document-delete-title"
               aria-describedby="document-delete-description"
-              initial={reduceMotion ? false : { opacity: 0, y: 24, filter: 'blur(2px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={reduceMotion ? undefined : { opacity: 0, y: 10, filter: 'blur(1px)' }}
-              transition={{ type: 'spring', duration: 0.28, bounce: 0 }}
+              {...bottomSheetMotion(reduceMotion)}
             >
               <span className="document-sheet__handle" aria-hidden="true" />
               <span className="document-delete-sheet__icon"><Trash2 size={20} aria-hidden="true" /></span>

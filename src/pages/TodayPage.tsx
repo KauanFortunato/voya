@@ -25,6 +25,7 @@ import { setChecklistItemCompletion } from '../api/checklist'
 import { getToday, setActivityCompletion, type TodayActivity, type TodayChecklistItem, type TodayPayload } from '../api/today'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './TodayPage.css'
 
 const categoryLabels: Record<string, string> = {
@@ -135,8 +136,8 @@ function ContextualChecklist({ checklist, savingIds, error, reduceMotion, onTogg
 function ActivityDetails({ activity, onClose }: { activity: TodayActivity; onClose: () => void }) {
   const reduceMotion = useReducedMotion()
   return (
-    <motion.div className="sheet-backdrop" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }} transition={{ duration: 0.16 }} onClick={onClose}>
-      <motion.section className="details-sheet" role="dialog" aria-modal="true" aria-labelledby="details-title" initial={reduceMotion ? false : { y: '100%', opacity: .94 }} animate={{ y: 0, opacity: 1 }} exit={reduceMotion ? undefined : { y: 20, opacity: 0 }} transition={{ type: 'spring', duration: 0.36, bounce: 0 }} onClick={(event) => event.stopPropagation()}>
+    <motion.div className="sheet-backdrop" {...dialogBackdropMotion(reduceMotion)} onClick={onClose}>
+      <motion.section className="details-sheet" role="dialog" aria-modal="true" aria-labelledby="details-title" {...bottomSheetMotion(reduceMotion)} onClick={(event) => event.stopPropagation()}>
         <span className="details-sheet__handle" aria-hidden="true" />
         <div className="details-sheet__heading"><div><span>{categoryLabels[activity.category] ?? activity.category}</span><h2 id="details-title">{activity.title}</h2></div><IconButton icon={X} ariaLabel="Fechar detalhes" onClick={onClose} /></div>
         {activity.notes && <p>{activity.notes}</p>}

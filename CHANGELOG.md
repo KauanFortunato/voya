@@ -23,6 +23,10 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 
 ### Melhorado
 
+- Animações de todos os dialogs e bottom sheets unificadas, com entrada e saída vertical consistentes e suporte a movimento reduzido.
+- Expansão e recolhimento dos eventos do roteiro tornados simétricos, rápidos e sem flicker.
+- Arraste das atividades do roteiro ajustado para responder pelo cartão completo e retornar de forma mais estável.
+- Documentos ligados no editor de atividades passam a iniciar recolhidos para reduzir a poluição visual.
 - Roteiro redesenhado como timeline diária, com cartões expansíveis, horários, duração, local, documentos e ações contextuais usando os dados reais da viagem.
 - Reordenação do roteiro concentrada num modo explícito, deixando a leitura diária mais limpa e evitando arrastes acidentais.
 - Fluxo de entrega separado entre imagem de validação `develop` e imagem estável `latest`.
