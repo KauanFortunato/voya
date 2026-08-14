@@ -592,16 +592,16 @@ export default function ItineraryPage() {
       )}
 
       <AnimatePresence initial={false}>
-        {syncState !== 'ready' && (
+        {syncState === 'error' && (
           <motion.p
-            className={`itinerary-sync${syncState === 'error' ? ' is-error' : ''}`}
-            role={syncState === 'error' ? 'alert' : 'status'}
+            className="itinerary-sync is-error"
+            role="alert"
             initial={reduceMotion ? false : { opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -2 }}
             transition={{ type: 'spring', duration: 0.18, bounce: 0 }}
           >
-            {syncState === 'loading' ? 'Sincronizando o roteiro com a NAS…' : 'Não foi possível sincronizar. A versão guardada neste dispositivo continua disponível.'}
+            Não foi possível sincronizar. A versão guardada neste dispositivo continua disponível.
           </motion.p>
         )}
       </AnimatePresence>
@@ -612,6 +612,8 @@ export default function ItineraryPage() {
           selectedIsoDate={selectedDay.isoDate}
           currentIsoDate={currentTripDate}
           reduceMotion={Boolean(reduceMotion)}
+          loading={syncState === 'loading'}
+          loadingLabel="A sincronizar o roteiro com a NAS…"
           onSelectDay={selectDay}
         />
       )}

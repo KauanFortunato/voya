@@ -14,6 +14,7 @@ type TripDayPickerProps = {
   currentIsoDate: string
   reduceMotion: boolean
   loading?: boolean
+  loadingLabel?: string
   onSelectDay: (isoDate: string) => void
 }
 
@@ -32,6 +33,7 @@ export default function TripDayPicker({
   currentIsoDate,
   reduceMotion,
   loading = false,
+  loadingLabel = 'A carregar outro dia…',
   onSelectDay,
 }: TripDayPickerProps) {
   const stripRef = useRef<HTMLDivElement>(null)
@@ -114,7 +116,7 @@ export default function TripDayPicker({
       >
         <CalendarClock size={17} aria-hidden="true" />
       </button>
-      {loading && <span className="trip-day-picker__progress" role="status">A carregar outro dia…</span>}
+      {loading && <span className="trip-day-picker__progress" role="status">{loadingLabel}</span>}
     </nav>
   )
 }

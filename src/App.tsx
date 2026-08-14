@@ -1,7 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
-  CalendarDays,
   House,
   MapPinned,
   MoreHorizontal,
@@ -23,13 +22,11 @@ import TodayPage from './pages/TodayPage'
 import './App.css'
 
 const primaryRouteLoaders = {
-  '/calendar': () => import('./pages/CalendarPage'),
   '/itinerary': () => import('./pages/ItineraryPage'),
   '/places': () => import('./pages/PlacesPage'),
   '/more': () => import('./pages/MorePage'),
 } as const
 
-const CalendarPage = lazy(primaryRouteLoaders['/calendar'])
 const ItineraryPage = lazy(primaryRouteLoaders['/itinerary'])
 const PlacesPage = lazy(primaryRouteLoaders['/places'])
 const MorePage = lazy(primaryRouteLoaders['/more'])
@@ -43,7 +40,6 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 
 const navigation = [
   { to: '/today', label: 'Hoje', icon: House },
-  { to: '/calendar', label: 'Calendário', icon: CalendarDays },
   { to: '/itinerary', label: 'Roteiro', icon: RouteIcon },
   { to: '/places', label: 'Lugares', icon: MapPinned },
   { to: '/more', label: 'Mais', icon: MoreHorizontal },
@@ -54,6 +50,7 @@ const scrollPositions = new Map<string, number>()
 
 function ScrollPositionManager() {
   const { pathname } = useLocation()
+  const previousPathname = useRef(pathname)
 
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration
@@ -64,10 +61,18 @@ function ScrollPositionManager() {
     }
   }, [])
 
-  useEffect(() => {
-    return () => {
-      if (primaryPaths.has(pathname)) scrollPositions.set(pathname, window.scrollY)
+  useLayoutEffect(() => {
+    const previousPath = previousPathname.current
+    if (previousPath === pathname) return
+
+    if (primaryPaths.has(previousPath)) {
+      scrollPositions.set(previousPath, window.scrollY)
     }
+    const targetPosition = primaryPaths.has(pathname)
+      ? (scrollPositions.get(pathname) ?? 0)
+      : 0
+    window.scrollTo({ top: targetPosition, behavior: 'auto' })
+    previousPathname.current = pathname
   }, [pathname])
 
   return null
@@ -104,15 +109,9 @@ function BottomNavigation() {
 function AnimatedRoutes() {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
-  const restoreDestinationScroll = () => {
-    const targetPosition = primaryPaths.has(location.pathname)
-      ? (scrollPositions.get(location.pathname) ?? 0)
-      : 0
-    window.scrollTo({ top: targetPosition, behavior: 'auto' })
-  }
 
   return (
-    <AnimatePresence mode="popLayout" initial={false} onExitComplete={restoreDestinationScroll}>
+    <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
         className="route-stage"
         key={location.pathname}
@@ -125,7 +124,7 @@ function AnimatedRoutes() {
           <Routes location={location}>
             <Route path="/" element={<Navigate to="/today" replace />} />
             <Route path="/today" element={<TodayPage />} />
-            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/calendar" element={<Navigate to="/itinerary" replace />} />
             <Route path="/itinerary" element={<ItineraryPage />} />
             <Route path="/places" element={<PlacesPage />} />
             <Route path="/more" element={<MorePage />} />

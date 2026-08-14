@@ -42,7 +42,7 @@
   width: min(calc(100% - 24px), 456px);
   height: 68px;
   padding: 7px 8px;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-radius: 22px;
   background: rgb(255 255 255 / 92%);
   box-shadow:
