@@ -319,7 +319,6 @@ export default function TodayPage() {
           <section className="today-day-context" aria-label={`Dia selecionado: ${formatDay(data.day.date)}, ${data.day.city}`}>
             <span>{dayModeLabel}</span>
             <strong>{data.day.city}</strong>
-            <small>{formatDay(data.day.date)}</small>
           </section>
           {error && <p className="today-action-error" role="alert">{error}</p>}
           {highlightedActivity ? <section className="next-activity" aria-labelledby="next-activity-title">

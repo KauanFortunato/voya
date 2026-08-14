@@ -20,7 +20,7 @@
 
 .today-day-context {
   display: grid;
-  min-height: 54px;
+  min-height: 44px;
   align-content: center;
   margin: -2px 0 10px;
   gap: 1px;
@@ -35,7 +35,6 @@
 }
 
 .today-day-context strong { font-size: 1.08rem; letter-spacing: -0.015em; }
-.today-day-context small { color: var(--color-text-secondary); font-size: 0.68rem; text-transform: capitalize; }
 
 .today-day-content { position: relative; min-width: 0; }
 

@@ -459,14 +459,6 @@ export default function PlacesPage() {
         />
       </header>
 
-      <section className="places-explainer" aria-label="Como usar Lugares">
-        <div>
-          <strong>Guarde primeiro, organize depois</strong>
-          <p>Veja a família de lugares no mapa e abra a rota quando for hora de sair.</p>
-        </div>
-        <span>{places.length} guardados</span>
-      </section>
-
       <div className="places-search-row">
         <label className="places-search">
           <Search size={19} aria-hidden="true" />

@@ -20,8 +20,6 @@ import TripDayPicker from '../components/TripDayPicker'
 import {
   tripDays,
   formatDuration,
-  tripDateLabel,
-  tripName,
   type CalendarActivity,
   type CalendarDay,
 } from '../data/itinerary'
@@ -562,34 +560,9 @@ export default function ItineraryPage() {
   return (
     <main className="itinerary-page" id="main-content" aria-busy={syncState === 'loading'}>
       <header className="itinerary-header">
-        <div>
-          <p>{tripDateLabel} · 10 dias</p>
-          <h1>Roteiro</h1>
-        </div>
+        <h1>Roteiro</h1>
         {user?.role === 'organizer' && <IconButton icon={Plus} ariaLabel="Adicionar atividade" onClick={() => setCreatingActivity(true)} />}
       </header>
-
-      <p className="itinerary-helper">
-        {tripName} · abra uma atividade para consultar detalhes, documentos e ações do roteiro.
-      </p>
-
-      {user?.role === 'organizer' && (
-        <div className="itinerary-command-row">
-          <button
-            className={organizing ? 'is-active' : ''}
-            type="button"
-            aria-pressed={organizing}
-            onClick={() => {
-              setOrganizing((current) => !current)
-              setExpandedActivityId(null)
-            }}
-          >
-            {organizing ? <Check size={16} aria-hidden="true" /> : <GripVertical size={16} aria-hidden="true" />}
-            {organizing ? 'Concluir' : 'Reordenar'}
-          </button>
-          <span>{organizing ? 'Arraste os cartões ou use as setas' : 'Organize cada dia da viagem'}</span>
-        </div>
-      )}
 
       <AnimatePresence initial={false}>
         {syncState === 'error' && (
@@ -641,9 +614,25 @@ export default function ItineraryPage() {
               <div>
                 <span>{selectedDay.weekday} · {selectedDay.date} de {selectedDay.month}</span>
                 <h2>{selectedDay.city}</h2>
-                <p>{selectedDay.transport ?? selectedDay.summary}</p>
               </div>
-              <strong>{selectedDay.activities.length} {selectedDay.activities.length === 1 ? 'plano' : 'planos'}</strong>
+              <div className="itinerary-selected-day__actions">
+                <strong>{selectedDay.activities.length} {selectedDay.activities.length === 1 ? 'plano' : 'planos'}</strong>
+                {user?.role === 'organizer' && (
+                  <button
+                    className={organizing ? 'is-active' : ''}
+                    type="button"
+                    aria-label={organizing ? 'Concluir reordenação' : 'Reordenar atividades'}
+                    aria-pressed={organizing}
+                    title={organizing ? 'Concluir reordenação' : 'Reordenar atividades'}
+                    onClick={() => {
+                      setOrganizing((current) => !current)
+                      setExpandedActivityId(null)
+                    }}
+                  >
+                    {organizing ? <Check size={17} aria-hidden="true" /> : <GripVertical size={17} aria-hidden="true" />}
+                  </button>
+                )}
+              </div>
             </header>
 
             <Reorder.Group
