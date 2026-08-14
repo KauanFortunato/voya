@@ -24,7 +24,7 @@ import { verifyPassword } from './security/password.ts'
 import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
 import { contextualChecklistLimit, tripPhase } from './today/context.ts'
 import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
-import { computeTravelPreview, GoogleRoutesError, type TravelMode } from './maps/routes.ts'
+import { computeNearbyPlaceEstimates, computeTravelPreview, GoogleRoutesError, type NearbyPlaceEstimate, type TravelMode } from './maps/routes.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -62,6 +62,11 @@ const expenseSchema = z.object({
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
 const placeStatusSchema = z.object({ status: z.enum(['saved', 'planned', 'visited']) })
+const nearbyPlacesSchema = z.object({
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  mode: z.enum(['WALK', 'TRANSIT', 'DRIVE']),
+})
 const reminderPreferencesSchema = z.object({
   enabled: z.boolean(),
   defaultLeadMinutes: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(1440)]),
@@ -130,6 +135,7 @@ async function start() {
   const sql = createDatabaseClient()
   const app = Fastify({ logger: true })
   const travelPreviewCache = new Map<string, { expiresAt: number; preview: { distanceMeters: number; durationSeconds: number; mode: TravelMode } }>()
+  const nearbyPlacesCache = new Map<string, { expiresAt: number; estimates: NearbyPlaceEstimate[] }>()
 
   await app.register(cookie)
   await app.register(multipart, {
@@ -917,6 +923,62 @@ async function start() {
           directionsUrl: googleMapsDirectionsUrl(location),
         }
       }),
+    }
+  })
+
+  app.post('/api/places/nearby', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para encontrar lugares próximos' })
+    if (!environment.GOOGLE_MAPS_SERVER_API_KEY) {
+      return reply.code(503).send({ error: 'As estimativas de deslocamento ainda não estão configuradas' })
+    }
+    const body = nearbyPlacesSchema.safeParse(request.body)
+    if (!body.success) return reply.code(400).send({ error: 'Localização ou modo de deslocamento inválido' })
+
+    const destinations = await sql<{
+      id: string
+      address: string | null
+      city: string | null
+      latitude: string | null
+      longitude: string | null
+    }[]>`
+      select p.id, p.address, p.city, p.latitude, p.longitude
+      from places p
+      join household_members viewer
+        on viewer.household_id = p.household_id and viewer.user_id = ${user.id}
+      where (p.latitude is not null and p.longitude is not null) or nullif(trim(p.address), '') is not null
+      order by p.name
+      limit 100
+    `
+    const routeDestinations = destinations.map((destination) => ({
+      ...destination,
+      address: destination.address ?? '',
+      city: destination.city ?? '',
+    }))
+    const cacheKey = JSON.stringify({
+      latitude: body.data.latitude.toFixed(4),
+      longitude: body.data.longitude.toFixed(4),
+      mode: body.data.mode,
+      destinations: routeDestinations.map((destination) => [destination.id, destination.latitude, destination.longitude, destination.address]),
+    })
+    const cached = nearbyPlacesCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return { estimates: cached.estimates, mode: body.data.mode, cached: true, attribution: `Powered by Google, ©${new Date().getFullYear()} Google` }
+    }
+
+    try {
+      const estimates = await computeNearbyPlaceEstimates({
+        apiKey: environment.GOOGLE_MAPS_SERVER_API_KEY,
+        latitude: body.data.latitude,
+        longitude: body.data.longitude,
+        destinations: routeDestinations,
+        mode: body.data.mode,
+      })
+      nearbyPlacesCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, estimates })
+      return { estimates, mode: body.data.mode, cached: false, attribution: `Powered by Google, ©${new Date().getFullYear()} Google` }
+    } catch (error) {
+      request.log.warn({ err: error }, 'Não foi possível ordenar os lugares próximos')
+      return reply.code(502).send({ error: 'O Google Maps não conseguiu calcular os lugares próximos agora' })
     }
   })
 
