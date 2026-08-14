@@ -1,0 +1,113 @@
+.places-map-shell {
+  position: relative;
+  overflow: hidden;
+  min-height: 430px;
+  border-radius: 20px;
+  background: #dceaf3;
+  box-shadow: var(--shadow-card);
+}
+
+.places-map {
+  width: 100%;
+  height: min(56dvh, 520px);
+  min-height: 430px;
+  font-family: inherit;
+}
+
+.places-map-status {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  left: 50%;
+  max-width: calc(100% - 28px);
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 4px 14px rgb(31 42 55 / 14%);
+  font-size: 0.68rem;
+  font-weight: 760;
+  transform: translateX(-50%);
+}
+
+.places-map-status--error {
+  width: max-content;
+  border-radius: 12px;
+  color: #a84c3f;
+  text-align: center;
+}
+
+.voya-map-marker {
+  display: grid;
+  place-items: center;
+  border: 3px solid white;
+  border-radius: 50%;
+  background: var(--color-primary-dark);
+  box-shadow: 0 4px 14px rgb(31 42 55 / 28%);
+}
+
+.voya-map-marker span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.voya-map-marker--visited {
+  background: var(--color-success);
+}
+
+.voya-map-marker--saved {
+  background: #7e8b99;
+}
+
+.voya-map-marker.is-selected {
+  box-shadow: 0 0 0 4px rgb(77 163 255 / 28%), 0 5px 18px rgb(31 42 55 / 30%);
+}
+
+.places-map .leaflet-control-attribution {
+  max-width: calc(100% - 8px);
+  color: #4c5662;
+  font-size: 0.58rem;
+}
+
+.places-map .leaflet-control-attribution a {
+  color: #245d9d;
+}
+
+.places-map .leaflet-control-zoom a {
+  color: var(--color-text);
+}
+
+.places-map-empty {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  align-content: center;
+  padding: 28px;
+  border-radius: 20px;
+  color: var(--color-text-secondary);
+  background: white;
+  gap: 6px;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.places-map-empty strong {
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.places-map-empty p {
+  max-width: 290px;
+  font-size: 0.74rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .places-map *,
+  .places-map *::before,
+  .places-map *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
