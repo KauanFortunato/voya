@@ -15,6 +15,18 @@ const googleRoutesErrorSchema = z.object({
   }).optional(),
 })
 
+const googleRouteMatrixSchema = z.array(z.object({
+  originIndex: z.number().int().nonnegative().default(0),
+  destinationIndex: z.number().int().nonnegative().default(0),
+  status: z.object({
+    code: z.number().optional(),
+    message: z.string().optional(),
+  }).optional(),
+  condition: z.string().optional(),
+  distanceMeters: z.number().int().nonnegative().optional(),
+  duration: z.string().regex(/^\d+(?:\.\d+)?s$/).optional(),
+}))
+
 export type RouteLocation = {
   address: string
   city: string
@@ -28,6 +40,12 @@ export type TravelPreview = {
   distanceMeters: number
   durationSeconds: number
   mode: TravelMode
+}
+
+export type RouteMatrixDestination = RouteLocation & { id: string }
+
+export type NearbyPlaceEstimate = TravelPreview & {
+  placeId: string
 }
 
 export class GoogleRoutesError extends Error {
@@ -98,4 +116,63 @@ export async function computeTravelPreview({
     durationSeconds: Math.ceil(Number.parseFloat(route.duration.slice(0, -1))),
     mode,
   }
+}
+
+export async function computeNearbyPlaceEstimates({
+  apiKey,
+  latitude,
+  longitude,
+  destinations,
+  mode,
+  fetchImplementation = fetch,
+  signal = AbortSignal.timeout(15_000),
+}: {
+  apiKey: string
+  latitude: number
+  longitude: number
+  destinations: RouteMatrixDestination[]
+  mode: TravelMode
+  fetchImplementation?: typeof fetch
+  signal?: AbortSignal
+}): Promise<NearbyPlaceEstimate[]> {
+  if (!destinations.length) return []
+  const response = await fetchImplementation('https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'originIndex,destinationIndex,status,condition,distanceMeters,duration',
+    },
+    body: JSON.stringify({
+      origins: [{ waypoint: { location: { latLng: { latitude, longitude } } } }],
+      destinations: destinations.map((destination) => ({ waypoint: googleWaypoint(destination) })),
+      travelMode: mode,
+      languageCode: 'pt-PT',
+      units: 'METRIC',
+      ...(mode === 'DRIVE' ? { routingPreference: 'TRAFFIC_AWARE' } : {}),
+    }),
+    signal,
+  })
+
+  const payload: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const upstream = googleRoutesErrorSchema.safeParse(payload)
+    throw new GoogleRoutesError(
+      response.status,
+      upstream.success ? (upstream.data.error?.message ?? 'A Google Routes API recusou o pedido') : 'Resposta inválida da Google Routes API',
+    )
+  }
+  const parsed = googleRouteMatrixSchema.safeParse(payload)
+  if (!parsed.success) throw new GoogleRoutesError(502, 'A Google Routes API devolveu uma matriz inválida')
+
+  return parsed.data.flatMap((element) => {
+    const destination = destinations[element.destinationIndex]
+    if (!destination || element.condition !== 'ROUTE_EXISTS' || !element.duration || element.distanceMeters === undefined) return []
+    return [{
+      placeId: destination.id,
+      distanceMeters: element.distanceMeters,
+      durationSeconds: Math.ceil(Number.parseFloat(element.duration.slice(0, -1))),
+      mode,
+    }]
+  }).sort((left, right) => left.durationSeconds - right.durationSeconds || left.distanceMeters - right.distanceMeters)
 }

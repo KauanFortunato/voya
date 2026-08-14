@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { computeTravelPreview, googleWaypoint, GoogleRoutesError } from './routes.ts'
+import { computeNearbyPlaceEstimates, computeTravelPreview, googleWaypoint, GoogleRoutesError } from './routes.ts'
 
 test('uses coordinates when a location has them', () => {
   assert.deepEqual(googleWaypoint({
@@ -58,4 +58,39 @@ test('normalizes Google API failures', async () => {
     }),
     (error: unknown) => error instanceof GoogleRoutesError && error.statusCode === 403 && error.message === 'Blocked',
   )
+})
+
+test('maps and sorts nearby places by route duration', async () => {
+  let requestBody: unknown
+  const result = await computeNearbyPlaceEstimates({
+    apiKey: 'test-key',
+    latitude: 41.9,
+    longitude: 12.49,
+    mode: 'DRIVE',
+    destinations: [
+      { id: 'far', address: 'Gianicolo', city: 'Roma', latitude: null, longitude: null },
+      { id: 'near', address: 'Colosseo', city: 'Roma', latitude: '41.8902', longitude: '12.4922' },
+    ],
+    signal: new AbortController().signal,
+    fetchImplementation: async (_input, init) => {
+      requestBody = JSON.parse(String(init?.body))
+      return new Response(JSON.stringify([
+        { destinationIndex: 0, condition: 'ROUTE_EXISTS', status: {}, distanceMeters: 5000, duration: '1200s' },
+        { destinationIndex: 1, condition: 'ROUTE_EXISTS', status: {}, distanceMeters: 800, duration: '420s' },
+      ]), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    },
+  })
+
+  assert.deepEqual(requestBody, {
+    origins: [{ waypoint: { location: { latLng: { latitude: 41.9, longitude: 12.49 } } } }],
+    destinations: [
+      { waypoint: { address: 'Gianicolo, Roma' } },
+      { waypoint: { location: { latLng: { latitude: 41.8902, longitude: 12.4922 } } } },
+    ],
+    travelMode: 'DRIVE', languageCode: 'pt-PT', units: 'METRIC', routingPreference: 'TRAFFIC_AWARE',
+  })
+  assert.deepEqual(result, [
+    { placeId: 'near', distanceMeters: 800, durationSeconds: 420, mode: 'DRIVE' },
+    { placeId: 'far', distanceMeters: 5000, durationSeconds: 1200, mode: 'DRIVE' },
+  ])
 })

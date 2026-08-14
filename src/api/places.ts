@@ -1,4 +1,12 @@
 export type PlaceStatus = 'saved' | 'planned' | 'visited'
+export type NearbyTravelMode = 'WALK' | 'TRANSIT' | 'DRIVE'
+
+export type NearbyPlaceEstimate = {
+  placeId: string
+  distanceMeters: number
+  durationSeconds: number
+  mode: NearbyTravelMode
+}
 
 export type Place = {
   id: string
@@ -32,4 +40,24 @@ export async function updatePlaceStatus(placeId: string, status: PlaceStatus) {
   })
   if (!response.ok) throw new Error(await readError(response))
   return response.json() as Promise<{ id: string; status: PlaceStatus }>
+}
+
+export async function listNearbyPlaces(
+  location: { latitude: number; longitude: number },
+  mode: NearbyTravelMode,
+  signal?: AbortSignal,
+) {
+  const response = await fetch('/api/places/nearby', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...location, mode }),
+    signal,
+  })
+  if (!response.ok) throw new Error(await readError(response))
+  return response.json() as Promise<{
+    estimates: NearbyPlaceEstimate[]
+    mode: NearbyTravelMode
+    cached: boolean
+    attribution: string
+  }>
 }
