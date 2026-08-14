@@ -11,6 +11,7 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './PdfViewer.css'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -160,10 +161,9 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
         type="button"
         aria-label="Fechar documento"
         onClick={onClose}
-        initial={reduceMotion ? false : { opacity: 0 }}
+        initial={dialogBackdropMotion(reduceMotion).initial}
         animate={{ opacity: expanded ? 1 : 0.72 }}
-        exit={reduceMotion ? undefined : { opacity: 0 }}
-        transition={{ duration: reduceMotion ? 0 : 0.18 }}
+        exit={dialogBackdropMotion(reduceMotion).exit}
       />
       <motion.section
         className="pdf-viewer"
@@ -172,7 +172,7 @@ export default function PdfViewer({ source, title, mimeType, onClose }: PdfViewe
         aria-labelledby="pdf-viewer-title"
         initial={reduceMotion ? false : { opacity: 0, y: collapsedY }}
         animate={animationControls}
-        exit={reduceMotion ? undefined : { opacity: 0, y: screenHeight }}
+        exit={bottomSheetMotion(reduceMotion).exit}
         drag="y"
         dragListener={false}
         dragControls={dragControls}

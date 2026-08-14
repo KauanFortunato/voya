@@ -13,6 +13,7 @@ import {
 } from '../api/checklist'
 import ModalPortal from '../components/ModalPortal'
 import SubpageHeader from '../components/SubpageHeader'
+import { bottomSheetMotion, dialogBackdropMotion } from '../motion/dialogMotion'
 import './ChecklistPage.css'
 
 const scopes: { value: ChecklistScope; label: string; icon: typeof UsersRound }[] = [
@@ -65,10 +66,7 @@ function ItemEditor({ groups, initialScope, onClose, onCreated }: ItemEditorProp
         aria-label="Fechar novo item"
         disabled={state === 'saving'}
         onClick={onClose}
-        initial={reduceMotion ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={reduceMotion ? undefined : { opacity: 0 }}
-        transition={{ duration: 0.15 }}
+        {...dialogBackdropMotion(reduceMotion)}
       />
       <motion.form
         className="checklist-editor"
@@ -76,10 +74,7 @@ function ItemEditor({ groups, initialScope, onClose, onCreated }: ItemEditorProp
         aria-modal="true"
         aria-labelledby="checklist-editor-title"
         onSubmit={(event) => void submit(event)}
-        initial={reduceMotion ? false : { y: 24, opacity: 0, filter: 'blur(2px)' }}
-        animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-        exit={reduceMotion ? undefined : { y: 10, opacity: 0, filter: 'blur(1px)' }}
-        transition={{ type: 'spring', duration: 0.26, bounce: 0 }}
+        {...bottomSheetMotion(reduceMotion)}
       >
         <span className="checklist-editor__handle" aria-hidden="true" />
         <div className="checklist-editor__heading">

@@ -23,6 +23,7 @@ import {
 import { verifyPassword } from './security/password.ts'
 import { reminderDeliveryKey, scheduledReminderAt, type ReminderLeadMinutes } from './reminders/schedule.ts'
 import { contextualChecklistLimit, tripPhase } from './today/context.ts'
+import { googleMapsDirectionsUrl, googleMapsSearchUrl } from './maps/urls.ts'
 
 const sessionCookie = 'voya_session'
 const sessionDurationMs = 1000 * 60 * 60 * 24 * 30
@@ -59,6 +60,7 @@ const expenseSchema = z.object({
 })
 const todayQuerySchema = z.object({ date: z.string().date().optional() })
 const activityCompletionSchema = z.object({ completed: z.boolean() })
+const placeStatusSchema = z.object({ status: z.enum(['saved', 'planned', 'visited']) })
 const reminderPreferencesSchema = z.object({
   enabled: z.boolean(),
   defaultLeadMinutes: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(1440)]),
@@ -111,13 +113,6 @@ function dateInTimezone(value: Date, timezone: string) {
   }).formatToParts(value)
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value
   return `${part('year')}-${part('month')}-${part('day')}`
-}
-
-function googleMapsUrl(activity: { title: string; city: string; address: string | null; latitude: string | null; longitude: string | null }) {
-  const query = activity.latitude && activity.longitude
-    ? `${activity.latitude},${activity.longitude}`
-    : [activity.address, activity.city, activity.title].filter(Boolean).join(', ')
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 function hashSessionToken(token: string) {
@@ -739,7 +734,7 @@ async function start() {
     const normalizedActivities = activities.map((activity) => ({
       ...activity,
       completed: Boolean(activity.completedAt),
-      mapsUrl: googleMapsUrl({ ...activity, city: day.city }),
+      mapsUrl: googleMapsSearchUrl({ ...activity, city: day.city }),
     }))
     const incomplete = normalizedActivities.filter((activity) => !activity.completed && activity.status !== 'cancelled')
     const now = Date.now()
@@ -815,6 +810,64 @@ async function start() {
     await sql`delete from activity_completions where activity_id = ${activity.id}`
     await reconcileActivityReminders(activity.id)
     return { completed: false, completedAt: null, completedByName: null }
+  })
+
+  app.get('/api/places', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para ver os lugares' })
+
+    const savedPlaces = await sql<{
+      id: string
+      name: string
+      category: string
+      city: string | null
+      address: string | null
+      latitude: string | null
+      longitude: string | null
+      mapsUrl: string | null
+      status: 'saved' | 'planned' | 'visited'
+    }[]>`
+      select p.id, p.name, p.category, p.city, p.address, p.latitude, p.longitude,
+             p.maps_url, p.status
+      from places p
+      join household_members viewer
+        on viewer.household_id = p.household_id and viewer.user_id = ${user.id}
+      order by
+        case p.status when 'planned' then 0 when 'saved' then 1 else 2 end,
+        p.city nulls last,
+        p.name
+    `
+
+    return {
+      places: savedPlaces.map((place) => {
+        const location = { ...place, title: place.name }
+        return {
+          ...place,
+          mapsUrl: place.mapsUrl ?? googleMapsSearchUrl(location),
+          directionsUrl: googleMapsDirectionsUrl(location),
+        }
+      }),
+    }
+  })
+
+  app.put('/api/places/:id/status', async (request, reply) => {
+    const user = await authenticate(request)
+    if (!user) return reply.code(401).send({ error: 'Inicie sessão para organizar os lugares' })
+    const params = z.object({ id: databaseUuidSchema }).safeParse(request.params)
+    const body = placeStatusSchema.safeParse(request.body)
+    if (!params.success || !body.success) return reply.code(400).send({ error: 'Estado do lugar inválido' })
+
+    const [place] = await sql<{ id: string; status: 'saved' | 'planned' | 'visited' }[]>`
+      update places p
+      set status = ${body.data.status}
+      from household_members viewer
+      where p.id = ${params.data.id}
+        and viewer.household_id = p.household_id
+        and viewer.user_id = ${user.id}
+      returning p.id, p.status
+    `
+    if (!place) return reply.code(404).send({ error: 'Lugar não encontrado nesta família' })
+    return place
   })
 
   app.get('/api/budget', async (request, reply) => {

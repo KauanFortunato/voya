@@ -20,9 +20,15 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Jobs persistentes de lembrete com agendamento idempotente, cancelamento e reagendamento automático.
 - Central de configurações com estado dos lembretes, próximo aviso, preferências pessoais e situação do dispositivo.
 - Controle de permissão de notificações por dispositivo, solicitado apenas após ativação explícita e com estados permitido, bloqueado ou indisponível.
+- Mapa interativo dos lugares guardados, com marcadores filtráveis, seleção de local e abertura de rotas no Google Maps.
+- API de lugares ligada ao PostgreSQL, com coordenadas persistidas e atualização compartilhada do estado planeado.
 
 ### Melhorado
 
+- Animações de todos os dialogs e bottom sheets unificadas, com entrada e saída vertical consistentes e suporte a movimento reduzido.
+- Expansão e recolhimento dos eventos do roteiro tornados simétricos, rápidos e sem flicker.
+- Arraste das atividades do roteiro ajustado para responder pelo cartão completo e retornar de forma mais estável.
+- Documentos ligados no editor de atividades passam a iniciar recolhidos para reduzir a poluição visual.
 - Roteiro redesenhado como timeline diária, com cartões expansíveis, horários, duração, local, documentos e ações contextuais usando os dados reais da viagem.
 - Reordenação do roteiro concentrada num modo explícito, deixando a leitura diária mais limpa e evitando arrastes acidentais.
 - Fluxo de entrega separado entre imagem de validação `develop` e imagem estável `latest`.
@@ -31,6 +37,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Estados de carregamento, vazio, erro e sucesso nos fluxos principais.
 - Transições da navegação, onboarding, seletor de dias e skeleton da tela Hoje.
 - Acessibilidade de movimento com suporte a `prefers-reduced-motion`.
+- Carregamento lazy do motor de mapas e feedback próprio para mosaicos, erros de rede e lugares sem coordenadas.
 
 ### Corrigido
 

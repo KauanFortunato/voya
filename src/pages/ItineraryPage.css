@@ -193,6 +193,10 @@
 .itinerary-timeline-dot.is-important { border-color: #fff2c7; background: #d99208; }
 .itinerary-activity__card { min-width: 0; overflow: hidden; border-radius: 17px; background: white; box-shadow: 0 0 0 1px rgb(47 128 237 / 9%), 0 7px 20px rgb(31 92 151 / 6%); transition: box-shadow 180ms var(--ease-out); }
 .itinerary-activity.is-expanded .itinerary-activity__card { box-shadow: 0 0 0 1px rgb(47 128 237 / 18%), 0 11px 26px rgb(31 92 151 / 10%); }
+.itinerary-activity.is-organizing { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.itinerary-activity.is-organizing:active { cursor: grabbing; }
+.itinerary-activity.is-organizing .itinerary-activity__card { pointer-events: none; }
+.itinerary-activity.is-organizing .itinerary-move-actions { pointer-events: auto; }
 .itinerary-activity__top { display: grid; min-height: 102px; align-items: start; padding: 12px 7px 11px 11px; grid-template-columns: 55px minmax(0, 1fr) 38px; gap: 9px; }
 .itinerary-activity__time { min-height: 52px; padding: 7px 3px; border: 0; border-radius: 11px; color: var(--color-primary-dark); text-align: center; background: var(--color-primary-light); cursor: pointer; }
 .itinerary-activity__time strong { display: block; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.69rem; }
@@ -211,11 +215,6 @@
 .itinerary-grip {
   color: var(--color-primary-dark);
   background: var(--color-primary-light);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
   transition:
     color 140ms var(--ease-out),
     background-color 140ms var(--ease-out);
@@ -225,10 +224,6 @@
 .itinerary-grip:focus-visible {
   color: var(--color-primary-dark);
   background: var(--color-primary-light);
-}
-
-.itinerary-grip:active {
-  cursor: grabbing;
 }
 
 .itinerary-activity__title {
@@ -243,7 +238,7 @@
   color: #e6a61f;
 }
 
-.itinerary-activity__details { padding: 0 12px 12px 75px; }
+.itinerary-activity__details { overflow: hidden; padding: 0 12px 12px 75px; }
 .itinerary-activity__facts { display: grid; padding-top: 10px; border-top: 1px solid var(--color-border); grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .itinerary-activity__facts > div { padding: 8px 9px; border-radius: 10px; background: var(--color-background); }
 .itinerary-activity__facts span, .itinerary-activity__facts strong { display: block; }
@@ -536,13 +531,19 @@
 
 .itinerary-editor__documents {
   display: grid;
-  padding: 0;
-  margin: 16px 0 0;
+  padding: 0 2px 2px;
+  margin: 8px 0 0;
   border: 0;
   gap: 6px;
 }
 
-.itinerary-editor__documents legend { margin-bottom: 2px; color: var(--color-text); font-size: 0.7rem; font-weight: 800; }
+.itinerary-editor__documents-section { margin-top: 14px; }
+.itinerary-editor__documents-toggle { display: grid; width: 100%; min-height: 58px; align-items: center; padding: 9px 10px; border: 0; border-radius: 14px; grid-template-columns: 36px minmax(0, 1fr) 18px; color: var(--color-text); text-align: left; background: white; box-shadow: 0 0 0 1px rgb(47 128 237 / 8%); cursor: pointer; gap: 9px; }
+.itinerary-editor__documents-toggle > span:first-child { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 11px; color: var(--color-primary-dark); background: var(--color-primary-light); }
+.itinerary-editor__documents-toggle > span:nth-child(2) { display: grid; gap: 2px; }
+.itinerary-editor__documents-toggle strong { font-size: 0.7rem; }
+.itinerary-editor__documents-toggle small { color: var(--color-text-secondary); font-size: 0.58rem; }
+.itinerary-editor__documents-toggle > svg { color: var(--color-text-secondary); }
 .itinerary-editor__documents > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px; }
 .itinerary-editor__documents > div > button {
   display: grid;
@@ -567,7 +568,7 @@
 .itinerary-editor__save:disabled { cursor: default; opacity: 0.6; }
 
 .itinerary-editor__storage {
-  margin-top: 13px;
+  margin-top: 5px;
   color: var(--color-text-secondary);
   font-size: 0.62rem;
 }
@@ -595,6 +596,7 @@
   .itinerary-move-actions button,
   .itinerary-free-action,
   .itinerary-editor__documents > div > button,
+  .itinerary-editor__documents-toggle,
   .itinerary-editor__important,
   .itinerary-editor__switch,
   .itinerary-editor__switch i,
