@@ -1,10 +1,14 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import {
   AlertCircle,
   Binoculars,
+  Bus,
+  CarFront,
   Check,
+  Clock3,
   Coffee,
+  Footprints,
   Landmark,
   List,
   LocateFixed,
@@ -16,12 +20,17 @@ import {
   Utensils,
 } from 'lucide-react'
 
-import { listPlaces, updatePlaceStatus, type Place, type PlaceStatus } from '../api/places'
+import { listNearbyPlaces, listPlaces, updatePlaceStatus, type NearbyPlaceEstimate, type NearbyTravelMode, type Place, type PlaceStatus } from '../api/places'
 import IconButton from '../components/IconButton'
 import './PlacesPage.css'
 
 const PlacesMap = lazy(() => import('../components/PlacesMap'))
 const categories = ['Todos', 'Restaurantes', 'Cafés', 'Atrações', 'Miradouros', 'Mercados'] as const
+const nearbyModes = [
+  { value: 'WALK', label: 'A pé', Icon: Footprints },
+  { value: 'TRANSIT', label: 'Autocarro', Icon: Bus },
+  { value: 'DRIVE', label: 'Carro', Icon: CarFront },
+] as const
 
 const categoryIcons = {
   Restaurantes: Utensils,
@@ -53,14 +62,25 @@ function PlacesLoading() {
   )
 }
 
+function formatDistance(meters: number) {
+  if (meters < 1000) return `${meters} m`
+  return `${new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 1 }).format(meters / 1000)} km`
+}
+
 function PlaceCard({
   place,
   saving,
+  estimate,
+  estimateLoading,
+  nearbyMode,
   onToggle,
   onShowMap,
 }: {
   place: Place
   saving: boolean
+  estimate?: NearbyPlaceEstimate
+  estimateLoading: boolean
+  nearbyMode: NearbyTravelMode
   onToggle: () => void
   onShowMap: () => void
 }) {
@@ -100,6 +120,16 @@ function PlaceCard({
           </motion.span>
         </AnimatePresence>
       </button>
+      {estimateLoading && (
+        <div className="place-card__route-skeleton" role="status" aria-label={`A calcular o percurso até ${place.name}`}><span /><span /></div>
+      )}
+      {estimate && (
+        <div className="place-card__route">
+          <Clock3 size={15} aria-hidden="true" />
+          <span><strong>{Math.max(1, Math.ceil(estimate.durationSeconds / 60))} min</strong><small>{formatDistance(estimate.distanceMeters)} desde a sua localização</small></span>
+          {nearbyMode === 'WALK' && <em>A rota a pé pode ter limitações.</em>}
+        </div>
+      )}
       <div className="place-card__actions">
         {place.latitude && place.longitude && (
           <button type="button" onClick={onShowMap}><LocateFixed size={15} aria-hidden="true" />Ver no mapa</button>
@@ -123,6 +153,14 @@ export default function PlacesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [savingIds, setSavingIds] = useState<string[]>([])
   const [actionError, setActionError] = useState('')
+  const nearbyRequest = useRef<AbortController | null>(null)
+  const [nearbyEnabled, setNearbyEnabled] = useState(false)
+  const [nearbyMode, setNearbyMode] = useState<NearbyTravelMode>('WALK')
+  const [nearbyState, setNearbyState] = useState<'idle' | 'locating' | 'loading' | 'ready' | 'error'>('idle')
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [nearbyEstimates, setNearbyEstimates] = useState<NearbyPlaceEstimate[]>([])
+  const [nearbyError, setNearbyError] = useState('')
+  const [nearbyAttribution, setNearbyAttribution] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -139,20 +177,107 @@ export default function PlacesPage() {
     return () => controller.abort()
   }, [retryCount])
 
+  useEffect(() => () => nearbyRequest.current?.abort(), [])
+
+  const estimateByPlaceId = useMemo(
+    () => new Map(nearbyEstimates.map((estimate) => [estimate.placeId, estimate])),
+    [nearbyEstimates],
+  )
+
   const filteredPlaces = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt')
-    return places.filter((place) => {
+    const matches = places.filter((place) => {
       const matchesCategory = category === 'Todos' || place.category === category
       const searchable = `${place.name} ${place.city ?? ''} ${place.address ?? ''}`.toLocaleLowerCase('pt')
       return matchesCategory && searchable.includes(normalizedQuery)
     })
-  }, [category, places, query])
+    if (!nearbyEnabled || nearbyState !== 'ready') return matches
+    return matches.sort((left, right) => {
+      const leftEstimate = estimateByPlaceId.get(left.id)
+      const rightEstimate = estimateByPlaceId.get(right.id)
+      if (!leftEstimate && !rightEstimate) return 0
+      if (!leftEstimate) return 1
+      if (!rightEstimate) return -1
+      return leftEstimate.durationSeconds - rightEstimate.durationSeconds
+    })
+  }, [category, estimateByPlaceId, nearbyEnabled, nearbyState, places, query])
 
   useEffect(() => {
     if (selectedId && !filteredPlaces.some((place) => place.id === selectedId)) setSelectedId(null)
   }, [filteredPlaces, selectedId])
 
   const selectedPlace = filteredPlaces.find((place) => place.id === selectedId) ?? null
+  const selectedEstimate = selectedPlace ? estimateByPlaceId.get(selectedPlace.id) : undefined
+
+  const loadNearby = async (location: { latitude: number; longitude: number }, mode: NearbyTravelMode) => {
+    nearbyRequest.current?.abort()
+    const controller = new AbortController()
+    nearbyRequest.current = controller
+    setNearbyState('loading')
+    setNearbyError('')
+    setNearbyEstimates([])
+    try {
+      const payload = await listNearbyPlaces(location, mode, controller.signal)
+      setNearbyEstimates(payload.estimates)
+      setNearbyAttribution(payload.attribution)
+      setNearbyState('ready')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setNearbyError(error instanceof Error ? error.message : 'Não foi possível calcular os lugares próximos')
+      setNearbyState('error')
+    }
+  }
+
+  const locateAndLoad = () => {
+    setNearbyState('locating')
+    setNearbyError('')
+    setNearbyEstimates([])
+    if (!window.isSecureContext) {
+      setNearbyError('A localização exige que o Voya seja aberto por HTTPS.')
+      setNearbyState('error')
+      return
+    }
+    if (!navigator.geolocation) {
+      setNearbyError('Este navegador não permite obter a sua localização.')
+      setNearbyState('error')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const location = { latitude: coords.latitude, longitude: coords.longitude }
+        setCurrentLocation(location)
+        void loadNearby(location, nearbyMode)
+      },
+      (error) => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? 'Autorize o acesso à localização para ordenar os lugares mais próximos.'
+          : 'Não foi possível obter a sua localização agora.'
+        setNearbyError(message)
+        setNearbyState('error')
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
+    )
+  }
+
+  const toggleNearby = () => {
+    if (nearbyEnabled) {
+      nearbyRequest.current?.abort()
+      setNearbyEnabled(false)
+      setNearbyState('idle')
+      setNearbyEstimates([])
+      setNearbyError('')
+      return
+    }
+    setNearbyEnabled(true)
+    setView('list')
+    locateAndLoad()
+  }
+
+  const selectNearbyMode = (mode: NearbyTravelMode) => {
+    if (mode === nearbyMode) return
+    setNearbyMode(mode)
+    if (currentLocation) void loadNearby(currentLocation, mode)
+  }
 
   const togglePlace = async (place: Place) => {
     if (savingIds.includes(place.id)) return
@@ -204,17 +329,33 @@ export default function PlacesPage() {
         <span>{places.length} guardados</span>
       </section>
 
-      <label className="places-search">
-        <Search size={19} aria-hidden="true" />
-        <span className="places-visually-hidden">Pesquisar lugares</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Pesquisar nome, cidade ou morada"
-          disabled={loadState !== 'ready'}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      <div className="places-search-row">
+        <label className="places-search">
+          <Search size={19} aria-hidden="true" />
+          <span className="places-visually-hidden">Pesquisar lugares</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="Pesquisar lugares"
+            disabled={loadState !== 'ready'}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <button className={`places-nearby-button${nearbyEnabled ? ' is-active' : ''}`} type="button" aria-pressed={nearbyEnabled} disabled={loadState !== 'ready'} onClick={toggleNearby}>
+          <LocateFixed size={18} aria-hidden="true" /><span>Mais próximos</span>
+        </button>
+      </div>
+
+      {nearbyEnabled && (
+        <section className="places-nearby" aria-label="Ordenar por tempo desde a sua localização" aria-busy={nearbyState === 'locating' || nearbyState === 'loading'}>
+          <div className="places-nearby__modes" aria-label="Modo de deslocamento">
+            {nearbyModes.map(({ value, label, Icon }) => <button className={nearbyMode === value ? 'is-active' : ''} type="button" aria-pressed={nearbyMode === value} disabled={nearbyState === 'locating'} onClick={() => selectNearbyMode(value)} key={value}><Icon size={15} aria-hidden="true" />{label}</button>)}
+          </div>
+          {(nearbyState === 'locating' || nearbyState === 'loading') && <p role="status">{nearbyState === 'locating' ? 'A obter a sua localização…' : 'A calcular os percursos mais rápidos…'}</p>}
+          {nearbyState === 'ready' && <p>{nearbyEstimates.length} lugares ordenados pelo tempo de percurso. A localização não é guardada no banco.</p>}
+          {nearbyState === 'error' && <div className="places-nearby__error" role="alert"><span>{nearbyError}</span><button type="button" onClick={() => currentLocation ? void loadNearby(currentLocation, nearbyMode) : locateAndLoad()}>Tentar novamente</button></div>}
+        </section>
+      )}
 
       <div className="place-filters" aria-label="Filtrar lugares por categoria">
         {categories.map((item) => (
@@ -266,6 +407,9 @@ export default function PlacesPage() {
                   <PlaceCard
                     place={place}
                     saving={savingIds.includes(place.id)}
+                    estimate={estimateByPlaceId.get(place.id)}
+                    estimateLoading={nearbyEnabled && (nearbyState === 'locating' || nearbyState === 'loading')}
+                    nearbyMode={nearbyMode}
                     onToggle={() => void togglePlace(place)}
                     onShowMap={() => showOnMap(place.id)}
                     key={place.id}
@@ -279,7 +423,7 @@ export default function PlacesPage() {
                 </Suspense>
                 {selectedPlace && (
                   <article className="map-place-preview">
-                    <div><span>{selectedPlace.category}{selectedPlace.city ? ` · ${selectedPlace.city}` : ''}</span><h2>{selectedPlace.name}</h2><p>{selectedPlace.address}</p></div>
+                    <div><span>{selectedPlace.category}{selectedPlace.city ? ` · ${selectedPlace.city}` : ''}</span><h2>{selectedPlace.name}</h2><p>{selectedEstimate ? `${Math.max(1, Math.ceil(selectedEstimate.durationSeconds / 60))} min · ${formatDistance(selectedEstimate.distanceMeters)}` : selectedPlace.address}</p></div>
                     <a href={selectedPlace.directionsUrl} target="_blank" rel="noreferrer"><Navigation size={16} />Traçar rota</a>
                   </article>
                 )}
@@ -298,6 +442,7 @@ export default function PlacesPage() {
           </motion.section>
         </AnimatePresence>
       )}
+      {nearbyEnabled && nearbyState === 'ready' && nearbyAttribution && <p className="places-google-attribution">{nearbyAttribution}</p>}
     </main>
   )
 }

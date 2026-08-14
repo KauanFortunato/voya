@@ -59,6 +59,12 @@
   letter-spacing: -0.045em;
 }
 
+.places-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
 .places-search {
   display: flex;
   min-height: 50px;
@@ -70,6 +76,45 @@
   gap: 10px;
   box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
 }
+
+.places-nearby-button {
+  display: grid;
+  min-width: 84px;
+  min-height: 50px;
+  place-items: center;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 15px;
+  color: var(--color-primary-dark);
+  background: white;
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+  font-size: 0.54rem;
+  font-weight: 780;
+  cursor: pointer;
+  gap: 1px;
+  transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.places-nearby-button.is-active { color: white; background: var(--color-primary-dark); box-shadow: 0 6px 16px rgb(47 128 237 / 20%); }
+.places-nearby-button:disabled { cursor: default; opacity: 0.62; }
+
+.places-nearby {
+  display: grid;
+  padding: 9px;
+  margin-top: 8px;
+  border-radius: 14px;
+  background: linear-gradient(135deg in oklch, #f4faff, #edf8f2);
+  box-shadow: 0 0 0 1px rgb(47 128 237 / 8%);
+  gap: 7px;
+}
+
+.places-nearby__modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.places-nearby__modes button { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; padding: 0 6px; border: 1px solid transparent; border-radius: 9px; color: var(--color-text-secondary); background: rgb(255 255 255 / 68%); font-size: 0.57rem; font-weight: 760; cursor: pointer; gap: 4px; transition: color 140ms var(--ease-out), border-color 140ms var(--ease-out), background-color 140ms var(--ease-out); }
+.places-nearby__modes button.is-active { border-color: rgb(47 128 237 / 17%); color: var(--color-primary-dark); background: white; }
+.places-nearby__modes button:disabled { cursor: wait; opacity: 0.62; }
+.places-nearby > p { color: var(--color-text-secondary); font-size: 0.56rem; line-height: 1.4; }
+.places-nearby__error { display: flex; align-items: center; justify-content: space-between; color: #a84c3f; font-size: 0.57rem; gap: 8px; }
+.places-nearby__error button { min-height: 30px; flex: 0 0 auto; padding: 0 8px; border: 0; border-radius: 8px; color: #a84c3f; background: #fff0ed; font-size: 0.53rem; font-weight: 760; cursor: pointer; }
 
 .places-search:focus-within {
   box-shadow: 0 0 0 3px rgb(77 163 255 / 20%);
@@ -163,6 +208,34 @@
   grid-column: 2 / -1;
   gap: 8px;
 }
+
+.place-card__route,
+.place-card__route-skeleton {
+  grid-column: 2 / -1;
+}
+
+.place-card__route {
+  display: grid;
+  min-height: 43px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 11px;
+  grid-template-columns: 20px minmax(0, 1fr);
+  color: var(--color-primary-dark);
+  background: linear-gradient(135deg in oklch, var(--color-primary-light), #eaf8f2);
+  gap: 6px;
+}
+
+.place-card__route > span { display: flex; min-width: 0; align-items: baseline; gap: 6px; }
+.place-card__route strong { font-size: 0.68rem; }
+.place-card__route small { overflow: hidden; color: var(--color-text-secondary); font-size: 0.54rem; text-overflow: ellipsis; white-space: nowrap; }
+.place-card__route em { grid-column: 2; color: var(--color-text-secondary); font-size: 0.47rem; font-style: normal; }
+
+.place-card__route-skeleton { display: grid; padding: 8px 9px; border-radius: 11px; background: #edf5fa; gap: 5px; }
+.place-card__route-skeleton span { position: relative; display: block; overflow: hidden; height: 8px; border-radius: 999px; background: #dcebf4; }
+.place-card__route-skeleton span:first-child { width: 52%; }
+.place-card__route-skeleton span:last-child { width: 34%; }
+.place-card__route-skeleton span::after { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 70%) 50%, transparent 80%); content: ''; transform: translateX(-100%); animation: places-shimmer 1.2s linear infinite; }
 
 .place-card__actions button,
 .place-card__actions a {
@@ -477,6 +550,8 @@
   font-weight: 650;
 }
 
+.places-google-attribution { margin-top: 10px; color: var(--color-text-secondary); font-size: 0.52rem; text-align: center; }
+
 .places-error {
   display: grid;
   min-height: 260px;
@@ -519,12 +594,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .place-card__add,
-  .places-view-switch button {
+  .places-view-switch button,
+  .places-nearby-button,
+  .places-nearby__modes button {
     transition-duration: 0.01ms;
   }
 
   .places-map-skeleton::after,
-  .places-loading > span::after {
+  .places-loading > span::after,
+  .place-card__route-skeleton span::after {
     display: none;
   }
 }
