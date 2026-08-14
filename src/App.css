@@ -12,76 +12,29 @@
   min-height: 100dvh;
 }
 
-.offline-status {
+.connection-strip {
   position: fixed;
-  z-index: 40;
-  right: max(18px, calc((100vw - 444px) / 2));
-  bottom: calc(max(10px, env(safe-area-inset-bottom)) + 78px);
-  left: max(18px, calc((100vw - 444px) / 2));
+  z-index: 50;
+  top: max(5px, env(safe-area-inset-top));
+  left: 50%;
   display: flex;
-  max-width: 444px;
-  min-height: 48px;
+  min-height: 27px;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 14px;
-  color: #604918;
-  background: rgb(255 248 225 / 96%);
-  box-shadow:
-    0 0 0 1px rgb(139 102 28 / 13%),
-    0 8px 26px rgb(66 53 23 / 13%);
-  backdrop-filter: blur(14px);
-  gap: 9px;
+  justify-content: center;
+  padding: 4px 9px;
+  border-radius: 8px;
+  box-shadow: 0 2px 9px rgb(31 42 55 / 10%);
+  font-size: 0.55rem;
+  font-weight: 720;
+  line-height: 1;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  gap: 5px;
 }
 
-.offline-status > svg { flex: 0 0 auto; }
-.offline-status span { display: grid; min-width: 0; gap: 1px; }
-.offline-status strong { font-size: 0.66rem; }
-.offline-status small { color: #77643a; font-size: 0.55rem; }
-
-.offline-status.is-preparing {
-  padding-bottom: 11px;
-  color: var(--color-primary-dark);
-  background: rgb(241 248 255 / 96%);
-}
-
-.offline-status.is-ready {
-  color: #20785e;
-  background: rgb(231 248 241 / 96%);
-}
-
-.offline-status.is-warning {
-  color: #9b3c36;
-  background: rgb(255 240 238 / 96%);
-}
-
-.offline-status.is-preparing small,
-.offline-status.is-ready small,
-.offline-status.is-warning small { color: currentcolor; opacity: 0.8; }
-
-.offline-status__progress {
-  position: absolute;
-  right: 10px;
-  bottom: 5px;
-  left: 10px;
-  overflow: hidden;
-  height: 3px;
-  border-radius: 999px;
-  background: #dceaf5;
-}
-
-.offline-status__progress b {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-primary);
-  transform-origin: left center;
-  transition: transform 180ms var(--ease-out);
-}
-
-.app-shell.has-subpage .offline-status {
-  bottom: max(14px, env(safe-area-inset-bottom));
-}
+.connection-strip.is-offline { color: #70591f; background: rgb(255 248 225 / 96%); }
+.connection-strip.is-reconnected { color: #17694f; background: rgb(231 248 241 / 97%); }
 
 .app-shell.has-subpage #main-content {
   padding-bottom: 32px;
@@ -163,14 +116,6 @@
 
   .bottom-navigation {
     bottom: 28px;
-  }
-
-  .offline-status {
-    bottom: 106px;
-  }
-
-  .app-shell.has-subpage .offline-status {
-    bottom: 30px;
   }
 }
 

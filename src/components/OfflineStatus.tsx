@@ -1,98 +1,56 @@
-import { CheckCircle2, CloudDownload, CloudOff, TriangleAlert } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Check, CloudOff } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
-import {
-  prepareEssentialOfflineData,
-  readLastOfflineSync,
-  type OfflinePreparationResult,
-} from '../offline/data'
+import { prepareEssentialOfflineData } from '../offline/data'
 
-function formatSyncTime(value: string | null) {
-  if (!value) return 'As áreas ainda não abertas podem não estar disponíveis.'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'A mostrar a informação guardada neste dispositivo.'
-  return `Informação guardada em ${new Intl.DateTimeFormat('pt-PT', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date)}.`
-}
+type ConnectionState = 'online' | 'offline' | 'reconnected'
 
 export default function OfflineStatus() {
-  const [online, setOnline] = useState(() => navigator.onLine)
-  const [lastSync, setLastSync] = useState(() => readLastOfflineSync())
-  const [preparation, setPreparation] = useState<OfflinePreparationResult | null>(null)
-  const [showReady, setShowReady] = useState(false)
+  const [state, setState] = useState<ConnectionState>(() => navigator.onLine ? 'online' : 'offline')
+  const wasOffline = useRef(!navigator.onLine)
 
   useEffect(() => {
-    const updateConnection = () => setOnline(navigator.onLine)
-    const updateSync = () => setLastSync(readLastOfflineSync())
-    window.addEventListener('online', updateConnection)
-    window.addEventListener('offline', updateConnection)
-    window.addEventListener('voya:offline-cache-updated', updateSync)
+    let hideReconnectMessage: number | undefined
+
+    const prepareSilently = () => {
+      void prepareEssentialOfflineData()
+    }
+
+    const handleOffline = () => {
+      if (hideReconnectMessage) window.clearTimeout(hideReconnectMessage)
+      wasOffline.current = true
+      setState('offline')
+    }
+
+    const handleOnline = () => {
+      prepareSilently()
+      if (!wasOffline.current) return
+      wasOffline.current = false
+      setState('reconnected')
+      hideReconnectMessage = window.setTimeout(() => setState('online'), 3_000)
+    }
+
+    if (navigator.onLine) prepareSilently()
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
     return () => {
-      window.removeEventListener('online', updateConnection)
-      window.removeEventListener('offline', updateConnection)
-      window.removeEventListener('voya:offline-cache-updated', updateSync)
+      if (hideReconnectMessage) window.clearTimeout(hideReconnectMessage)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     }
   }, [])
 
-  useEffect(() => {
-    if (!online) return
-    let active = true
-    setShowReady(false)
-    void prepareEssentialOfflineData((progress) => {
-      if (active) setPreparation(progress)
-    }).then((result) => {
-      if (!active) return
-      setPreparation(result)
-      if (!result.failed) setShowReady(true)
-    })
-    return () => { active = false }
-  }, [online])
+  if (state === 'online') return null
 
-  useEffect(() => {
-    if (!showReady) return
-    const timeout = window.setTimeout(() => setShowReady(false), 3_000)
-    return () => window.clearTimeout(timeout)
-  }, [showReady])
-
-  if (online && preparation && preparation.completed + preparation.failed < preparation.total) {
-    const finished = preparation.completed + preparation.failed
-    return (
-      <aside className="offline-status is-preparing" role="status" aria-live="polite">
-        <CloudDownload size={17} aria-hidden="true" />
-        <span><strong>A preparar acesso offline</strong><small>{finished} de {preparation.total} áreas guardadas</small></span>
-        <i className="offline-status__progress" aria-hidden="true"><b style={{ transform: `scaleX(${finished / preparation.total})` }} /></i>
-      </aside>
-    )
-  }
-
-  if (online && preparation?.failed) {
-    return (
-      <aside className="offline-status is-warning" role="status">
-        <TriangleAlert size={17} aria-hidden="true" />
-        <span><strong>Preparação offline incompleta</strong><small>Abra novamente com internet antes da viagem.</small></span>
-      </aside>
-    )
-  }
-
-  if (online && showReady) {
-    return (
-      <aside className="offline-status is-ready" role="status" aria-live="polite">
-        <CheckCircle2 size={17} aria-hidden="true" />
-        <span><strong>Voya pronto para uso offline</strong><small>As informações essenciais foram guardadas.</small></span>
-      </aside>
-    )
-  }
-
-  if (online) return null
-
-  return (
-    <aside className="offline-status" role="status" aria-live="polite">
-      <CloudOff size={17} aria-hidden="true" />
-      <span><strong>Sem ligação</strong><small>{formatSyncTime(lastSync)}</small></span>
+  return state === 'offline' ? (
+    <aside className="connection-strip is-offline" role="status" aria-live="polite">
+      <CloudOff size={13} aria-hidden="true" />
+      <span>Sem conexão · mostrando dados salvos</span>
+    </aside>
+  ) : (
+    <aside className="connection-strip is-reconnected" role="status" aria-live="polite">
+      <Check size={13} aria-hidden="true" />
+      <span>Conexão restabelecida</span>
     </aside>
   )
 }
