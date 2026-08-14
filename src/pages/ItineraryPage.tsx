@@ -12,6 +12,7 @@ import { updateActivityDocuments, type ApiDocument } from '../api/documents'
 import { createActivity, getRemoteItinerary, updateActivity, type ActivityInput } from '../api/itinerary'
 import { listTravelers, type ApiTraveler } from '../api/travelers'
 import { useAuth } from '../auth/auth'
+import DocumentDetailsDialog from '../components/DocumentDetailsDialog'
 import IconButton from '../components/IconButton'
 import ModalPortal from '../components/ModalPortal'
 import TravelPreview from '../components/TravelPreview'
@@ -190,58 +191,6 @@ function DraggableActivity({
         )}
       </div>
     </Reorder.Item>
-  )
-}
-
-function LinkedDocumentDialog({
-  document,
-  reduceMotion,
-  onClose,
-  onOpenFile,
-}: {
-  document: ApiDocument
-  reduceMotion: boolean
-  onClose: () => void
-  onOpenFile: () => void
-}) {
-  const statusLabel = document.status === 'confirmed'
-    ? 'Confirmado'
-    : document.status === 'attention' || document.status === 'expired'
-      ? 'Atenção'
-      : 'Rascunho'
-
-  return (
-    <div className="itinerary-document-layer" role="presentation">
-      <motion.button
-        className="itinerary-document-backdrop"
-        type="button"
-        aria-label="Fechar documento"
-        onClick={onClose}
-        {...dialogBackdropMotion(reduceMotion)}
-      />
-      <motion.section
-        className="itinerary-document-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="itinerary-document-title"
-        {...bottomSheetMotion(reduceMotion)}
-      >
-        <span className="itinerary-document-sheet__handle" aria-hidden="true" />
-        <button className="itinerary-document-sheet__close" type="button" aria-label="Fechar" onClick={onClose}>
-          <X size={19} aria-hidden="true" />
-        </button>
-        <span className="itinerary-document-sheet__eyebrow">{document.category}</span>
-        <h2 id="itinerary-document-title">{document.title}</h2>
-        <dl className="itinerary-document-details">
-          <div><dt>Estado</dt><dd>{statusLabel}</dd></div>
-          {document.bookingCode && <div><dt>Código</dt><dd><code>{document.bookingCode}</code></dd></div>}
-          <div><dt>Ficheiro</dt><dd>{document.originalFilename}</dd></div>
-        </dl>
-        <button className="itinerary-document-sheet__open" type="button" onClick={onOpenFile}>
-          <FileText size={17} aria-hidden="true" />Abrir documento
-        </button>
-      </motion.section>
-    </div>
   )
 }
 
@@ -766,9 +715,8 @@ export default function ItineraryPage() {
       </ModalPortal>
       <ModalPortal open={Boolean(selectedDocument)} onClose={() => setSelectedDocument(null)}>
         {selectedDocument && (
-          <LinkedDocumentDialog
+          <DocumentDetailsDialog
             document={selectedDocument}
-            reduceMotion={Boolean(reduceMotion)}
             onClose={() => setSelectedDocument(null)}
             onOpenFile={() => {
               setViewerDocument(selectedDocument)
