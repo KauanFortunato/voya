@@ -45,6 +45,7 @@ import {
   isDocumentAvailableOffline,
   readDocumentBlob,
   removeDocumentOffline,
+  storeDocumentBlobOffline,
   storeDocumentOffline,
   supportsOfflineDocuments,
 } from '../offline/documents'
@@ -484,12 +485,29 @@ export default function DocumentsPage() {
       )
       preparedShare.current = { documentId: document.id, file }
 
+      if (document.fileUrl) {
+        await storeDocumentBlobOffline(document.fileUrl, blob)
+        setOfflineStates((current) => ({ ...current, [document.id]: {
+          status: 'available', progress: 100, message: 'Disponível sem ligação à internet.',
+        } }))
+      }
+
       if (canShareDocument(file)) {
-        setShareState({
-          status: 'ready',
-          progress: 100,
-          message: 'Arquivo pronto. Toque novamente para escolher com quem compartilhar.',
-        })
+        setShareState({ status: 'sharing', progress: 100, message: 'A abrir as opções de compartilhamento…' })
+        try {
+          await navigator.share({
+            files: [file],
+            title: document.title,
+            text: `Documento da viagem: ${document.title}`,
+          })
+          setShareState({ status: 'success', progress: 100, message: 'Documento compartilhado e disponível offline.' })
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') {
+            setShareState({ status: 'ready', progress: 100, message: 'Compartilhamento cancelado. O arquivo continua disponível offline.' })
+            return
+          }
+          setShareState({ status: 'ready', progress: 100, message: 'O arquivo está pronto. Toque para tentar abrir o compartilhamento novamente.' })
+        }
         return
       }
 
@@ -967,7 +985,8 @@ export default function DocumentsPage() {
                       <Share2 size={17} aria-hidden="true" />
                       {shareState.status === 'preparing' ? 'A preparar…'
                         : shareState.status === 'sharing' ? 'A compartilhar…'
-                          : shareState.status === 'ready' || shareState.status === 'success' ? 'Compartilhar agora'
+                          : shareState.status === 'ready' ? 'Tentar compartilhar'
+                            : shareState.status === 'success' ? 'Compartilhar novamente'
                             : shareState.status === 'error' ? 'Tentar novamente'
                               : shareState.status === 'downloaded' ? 'Baixar novamente'
                                 : 'Compartilhar arquivo'}

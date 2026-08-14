@@ -80,6 +80,15 @@ export async function storeDocumentOffline(
   }
 
   const blob = await readDocumentBlob(fileUrl, onProgress)
+  await storeDocumentBlobOffline(fileUrl, blob)
+  onProgress(100)
+}
+
+export async function storeDocumentBlobOffline(fileUrl: string, blob: Blob) {
+  if (!supportsOfflineDocuments()) {
+    throw new Error('Este navegador não permite guardar documentos offline.')
+  }
+
   const cachedResponse = new Response(blob, {
     status: 200,
     headers: {
@@ -97,7 +106,6 @@ export async function storeDocumentOffline(
     }
     throw error
   }
-  onProgress(100)
 }
 
 export async function removeDocumentOffline(fileUrl: string) {
