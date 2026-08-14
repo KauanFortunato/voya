@@ -325,16 +325,21 @@ export default function TodayPage() {
                 <article className={`timeline-item${activity.completed ? ' is-done' : ''}${isHighlighted ? ' is-current' : ''}${activity.status === 'cancelled' ? ' is-cancelled' : ''}`}>
                   <span className="timeline-item__marker" aria-hidden="true">{activity.completed && <Check size={11} strokeWidth={3} />}</span>
                   <div className="timeline-card">
-                    <div className="timeline-card__main">
-                      <time><strong>{activity.time ?? 'A definir'}</strong><small>{activity.endTime ? `até ${activity.endTime}` : 'sem duração'}</small></time>
-                      <div className="timeline-card__content">
+                    <button className="timeline-card__details" type="button" onClick={() => setSelectedActivity(activity)}>
+                      <span className="timeline-card__topline">
+                        <time className={activity.time ? '' : 'is-pending'}><Clock3 size={13} aria-hidden="true" /><strong>{activity.time ?? 'Horário por definir'}</strong>{activity.endTime && <small>– {activity.endTime}</small>}</time>
                         <span className="timeline-card__badge">{categoryLabels[activity.category] ?? activity.category}</span>
-                        <h3>{activity.title}</h3>
-                        <p><MapPin size={13} aria-hidden="true" />{activity.address || 'Local ainda não definido'}</p>
-                        {activity.documents.length > 0 && <span className="timeline-documents"><FileText size={13} />{activity.documents.length} {activity.documents.length === 1 ? 'documento' : 'documentos'}</span>}
-                      </div>
+                        <ChevronRight size={16} aria-hidden="true" />
+                      </span>
+                      <h3>{activity.title}</h3>
+                      {activity.address && <p><MapPin size={13} aria-hidden="true" />{activity.address}</p>}
+                    </button>
+                    <div className="timeline-card__footer">
+                      {activity.documents.length > 0
+                        ? <span className="timeline-documents"><FileText size={13} />{activity.documents.length} {activity.documents.length === 1 ? 'doc.' : 'docs.'}</span>
+                        : <span />}
+                      {activity.status !== 'cancelled' && <button type="button" disabled={isSaving} aria-busy={isSaving} onClick={() => void toggleActivity(activity)}>{isSaving ? 'A guardar…' : activity.completed ? 'Desfazer' : 'Concluir'}</button>}
                     </div>
-                    <div className="timeline-card__actions"><button type="button" onClick={() => setSelectedActivity(activity)}>Detalhes</button>{activity.status !== 'cancelled' && <button type="button" disabled={isSaving} aria-busy={isSaving} onClick={() => void toggleActivity(activity)}>{isSaving ? 'A guardar…' : activity.completed ? 'Desfazer' : 'Concluir'}</button>}</div>
                   </div>
                 </article>
               </Fragment>

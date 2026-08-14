@@ -501,7 +501,7 @@
 
 .timeline-card {
   overflow: hidden;
-  padding: 12px;
+  padding: 0;
   border-radius: 17px;
   background: white;
   box-shadow: 0 0 0 1px rgb(47 128 237 / 9%), 0 7px 20px rgb(31 92 151 / 6%);
@@ -518,31 +518,44 @@
   opacity: 0.65;
 }
 
-.timeline-card__main {
+.timeline-card__details {
+  display: block;
+  width: 100%;
+  padding: 12px 12px 9px;
+  border: 0;
+  color: var(--color-text);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.timeline-card__topline {
   display: grid;
-  align-items: start;
-  grid-template-columns: 58px minmax(0, 1fr);
-  gap: 10px;
+  align-items: center;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) 16px;
+  gap: 7px;
 }
 
 .timeline-card time {
-  display: grid;
-  min-height: 54px;
-  place-content: center;
-  padding: 7px 3px;
-  border-radius: 11px;
+  display: inline-flex;
+  min-height: 25px;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 8px;
   color: var(--color-primary-dark);
-  text-align: center;
   background: var(--color-primary-light);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  gap: 4px;
 }
 
-.timeline-card time strong { font-size: 0.7rem; }
-.timeline-card time small { margin-top: 5px; color: var(--color-text-secondary); font: 0.5rem/1.2 inherit; }
-
-.timeline-card__content { min-width: 0; }
+.timeline-card time.is-pending { color: #8a6423; background: #fff5dd; }
+.timeline-card time strong { font-size: 0.57rem; white-space: nowrap; }
+.timeline-card time small { color: var(--color-text-secondary); font: 0.52rem/1 inherit; white-space: nowrap; }
 
 .timeline-card__badge {
+  justify-self: start;
+  overflow: hidden;
+  max-width: 100%;
   display: inline-flex;
   min-height: 19px;
   align-items: center;
@@ -553,12 +566,16 @@
   font-size: 0.47rem;
   font-weight: 800;
   letter-spacing: 0.035em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
+.timeline-card__topline > svg { color: #9cacba; }
+
 .timeline-card h3 {
-  margin-top: 6px;
-  font-size: 0.82rem;
+  margin-top: 9px;
+  font-size: 0.84rem;
   line-height: 1.25;
 }
 
@@ -570,6 +587,9 @@
   font-size: 0.59rem;
   line-height: 1.35;
   gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timeline-card p svg { flex: 0 0 auto; }
@@ -577,42 +597,38 @@
 .timeline-documents {
   display: inline-flex;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 0;
   color: var(--color-primary-dark);
   font-size: 0.65rem;
   font-weight: 750;
   gap: 4px;
 }
 
-.timeline-card__actions {
+.timeline-card__footer {
   display: flex;
-  justify-content: flex-end;
-  padding-top: 10px;
-  margin: 10px 0 0 68px;
+  min-height: 43px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 7px 12px;
   border-top: 1px solid var(--color-border);
   gap: 7px;
 }
 
-.timeline-card button {
-  min-height: 36px;
-  padding: 0 11px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  color: var(--color-primary-dark);
-  background: var(--color-background);
-  font-size: 0.74rem;
-  font-weight: 750;
+.timeline-card__footer > button {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  color: white;
+  background: var(--color-primary-dark);
+  font-size: 0.62rem;
+  font-weight: 780;
   cursor: pointer;
 }
 
-.timeline-card__actions button:last-child {
-  color: white;
-  border-color: var(--color-primary-dark);
-  background: var(--color-primary-dark);
-}
+.timeline-card__footer > button:disabled { opacity: 0.62; cursor: wait; }
+.timeline-item.is-done .timeline-card__footer > button { color: var(--color-primary-dark); background: var(--color-primary-light); }
 
-.timeline-card__actions button:disabled { opacity: 0.62; cursor: wait; }
-.timeline-item.is-done .timeline-card__actions button:last-child { color: var(--color-primary-dark); border-color: var(--color-border); background: var(--color-primary-light); }
 .timeline-item.is-cancelled .timeline-card { opacity: 0.55; }
 .timeline-item.is-cancelled .timeline-item__marker { border-color: #c0c8cf; background: #eef1f4; }
 
