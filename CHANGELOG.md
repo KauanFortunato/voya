@@ -22,7 +22,7 @@ Este arquivo registra as mudanças relevantes do Voya durante o desenvolvimento.
 - Controle de permissão de notificações por dispositivo, solicitado apenas após ativação explícita e com estados permitido, bloqueado ou indisponível.
 - Mapa interativo dos lugares guardados, com marcadores filtráveis, seleção de local e abertura de rotas no Google Maps.
 - API de lugares ligada ao PostgreSQL, com coordenadas persistidas e atualização compartilhada do estado planeado.
-- Preview sob demanda do deslocamento a pé entre atividades consecutivas, com distância, duração e horário sugerido de saída calculados pela Google Routes API sem expor a chave no cliente.
+- Preview sob demanda entre atividades consecutivas no Roteiro e na timeline Hoje, com modos a pé, transporte público e carro, distância, duração e horário sugerido de saída calculados pela Google Routes API sem expor a chave no cliente.
 
 ### Melhorado
 
